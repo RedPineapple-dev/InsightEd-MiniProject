@@ -1,0 +1,1684 @@
+{
+  "video_path": "/Users/apple/Desktop/mini-project-main/backend/uploads/video_Lec-1\uff1a Compiler Design Syllabus Discussion for Competitive & College\u29f8University Exams.mp4",
+  "document_path": "/Users/apple/Desktop/mini-project-main/backend/uploads/doc_compiler_design_syllabus_guide.pptx",
+  "transcript": [
+    {
+      "timestamp": "00:00",
+      "start": 0.0,
+      "end": 9.36,
+      "text": "Hello students, welcome to GatesMeshers.",
+      "id": 0
+    },
+    {
+      "timestamp": "00:09",
+      "start": 9.36,
+      "end": 12.46,
+      "text": "Today's video is going to start with compiler design.",
+      "id": 1
+    },
+    {
+      "timestamp": "00:12",
+      "start": 12.46,
+      "end": 18.84,
+      "text": "So, since you are preparing for a competitive exam like gate exam, net, net, net, net, any PSU exam",
+      "id": 2
+    },
+    {
+      "timestamp": "00:18",
+      "start": 18.84,
+      "end": 22.28,
+      "text": "in which Slevas's topic is mentioned in this topic.",
+      "id": 3
+    },
+    {
+      "timestamp": "00:22",
+      "start": 22.28,
+      "end": 26.0,
+      "text": "Or you are also preparing for a college or university exam.",
+      "id": 4
+    },
+    {
+      "timestamp": "00:26",
+      "start": 26.0,
+      "end": 29.88,
+      "text": "So, I will tell you about the entire series of compiler design.",
+      "id": 5
+    },
+    {
+      "timestamp": "00:29",
+      "start": 29.88,
+      "end": 33.12,
+      "text": "These are all the points you will be able to help a lot.",
+      "id": 6
+    },
+    {
+      "timestamp": "00:33",
+      "start": 33.12,
+      "end": 35.84,
+      "text": "And guys, I will tell you all the points to note well.",
+      "id": 7
+    },
+    {
+      "timestamp": "00:35",
+      "start": 35.84,
+      "end": 38.96,
+      "text": "I am bringing you a clear and clear video.",
+      "id": 8
+    },
+    {
+      "timestamp": "00:38",
+      "start": 38.96,
+      "end": 43.12,
+      "text": "And I will tell you that the most important points in this video,",
+      "id": 9
+    },
+    {
+      "timestamp": "00:43",
+      "start": 43.12,
+      "end": 48.84,
+      "text": "where students can make this compiler design a little tricky and complex.",
+      "id": 10
+    },
+    {
+      "timestamp": "00:48",
+      "start": 48.84,
+      "end": 52.96,
+      "text": "I have never focused on this much.",
+      "id": 11
+    },
+    {
+      "timestamp": "00:52",
+      "start": 52.96,
+      "end": 56.88,
+      "text": "I used to leave the topic on the topic of the exam, that the topic of the rest is coming.",
+      "id": 12
+    },
+    {
+      "timestamp": "00:56",
+      "start": 56.92,
+      "end": 59.48,
+      "text": "But, you will not be able to make this.",
+      "id": 13
+    },
+    {
+      "timestamp": "00:59",
+      "start": 59.48,
+      "end": 63.16,
+      "text": "But, all the points are important. Each and every subject is very important.",
+      "id": 14
+    },
+    {
+      "timestamp": "01:03",
+      "start": 63.16,
+      "end": 66.44,
+      "text": "And this is also very important in real life.",
+      "id": 15
+    },
+    {
+      "timestamp": "01:06",
+      "start": 66.44,
+      "end": 69.16,
+      "text": "You use all the programming languages.",
+      "id": 16
+    },
+    {
+      "timestamp": "01:09",
+      "start": 69.16,
+      "end": 72.0,
+      "text": "We are using all the high level languages.",
+      "id": 17
+    },
+    {
+      "timestamp": "01:12",
+      "start": 72.0,
+      "end": 74.24,
+      "text": "But, how the computer is evaluating it?",
+      "id": 18
+    },
+    {
+      "timestamp": "01:14",
+      "start": 74.24,
+      "end": 81.04,
+      "text": "How the computer is converting it to low level, machine level, and the compiler of the compiler.",
+      "id": 19
+    },
+    {
+      "timestamp": "01:21",
+      "start": 81.04,
+      "end": 85.56,
+      "text": "So, here I will tell you, I have never focused on this.",
+      "id": 20
+    },
+    {
+      "timestamp": "01:25",
+      "start": 85.6,
+      "end": 87.72,
+      "text": "But, actually, this is the case,",
+      "id": 21
+    },
+    {
+      "timestamp": "01:27",
+      "start": 87.72,
+      "end": 90.72,
+      "text": "that if we talk about the part,",
+      "id": 22
+    },
+    {
+      "timestamp": "01:30",
+      "start": 90.72,
+      "end": 92.72,
+      "text": "then, what happens when we talk about the part,",
+      "id": 23
+    },
+    {
+      "timestamp": "01:32",
+      "start": 92.72,
+      "end": 95.56,
+      "text": "that normally, it starts to look scary,",
+      "id": 24
+    },
+    {
+      "timestamp": "01:35",
+      "start": 95.56,
+      "end": 96.64,
+      "text": "that what is this?",
+      "id": 25
+    },
+    {
+      "timestamp": "01:36",
+      "start": 96.64,
+      "end": 100.48,
+      "text": "But, as soon as you reach the peak,",
+      "id": 26
+    },
+    {
+      "timestamp": "01:40",
+      "start": 100.48,
+      "end": 102.96,
+      "text": "it will not be able to reach the peak.",
+      "id": 27
+    },
+    {
+      "timestamp": "01:42",
+      "start": 102.96,
+      "end": 104.56,
+      "text": "So, that is the point here.",
+      "id": 28
+    },
+    {
+      "timestamp": "01:44",
+      "start": 104.56,
+      "end": 108.88,
+      "text": "It will start, and it will start, and it will start,",
+      "id": 29
+    },
+    {
+      "timestamp": "01:48",
+      "start": 108.88,
+      "end": 109.88,
+      "text": "it will be very difficult.",
+      "id": 30
+    },
+    {
+      "timestamp": "01:49",
+      "start": 109.88,
+      "end": 112.28,
+      "text": "But, when you reach the peak,",
+      "id": 31
+    },
+    {
+      "timestamp": "01:52",
+      "start": 112.28,
+      "end": 113.88,
+      "text": "then you will find out,",
+      "id": 32
+    },
+    {
+      "timestamp": "01:53",
+      "start": 113.88,
+      "end": 114.88,
+      "text": "that there is nothing,",
+      "id": 33
+    },
+    {
+      "timestamp": "01:54",
+      "start": 114.88,
+      "end": 116.28,
+      "text": "it is very scary in such cases.",
+      "id": 34
+    },
+    {
+      "timestamp": "01:56",
+      "start": 116.28,
+      "end": 118.12,
+      "text": "So, this is the compiler design.",
+      "id": 35
+    },
+    {
+      "timestamp": "01:58",
+      "start": 118.12,
+      "end": 120.28,
+      "text": "I will tell you, in the same way,",
+      "id": 36
+    },
+    {
+      "timestamp": "02:00",
+      "start": 120.28,
+      "end": 123.56,
+      "text": "I am taking clear and crisp videos for you.",
+      "id": 37
+    },
+    {
+      "timestamp": "02:03",
+      "start": 123.56,
+      "end": 126.04,
+      "text": "So, check all the videos carefully.",
+      "id": 38
+    },
+    {
+      "timestamp": "02:06",
+      "start": 126.04,
+      "end": 128.08,
+      "text": "If I tell you, for example,",
+      "id": 39
+    },
+    {
+      "timestamp": "02:08",
+      "start": 128.08,
+      "end": 130.12,
+      "text": "that you can talk about the gate part,",
+      "id": 40
+    },
+    {
+      "timestamp": "02:10",
+      "start": 130.12,
+      "end": 132.8,
+      "text": "then, you can write 4 marks of the important part.",
+      "id": 41
+    },
+    {
+      "timestamp": "02:12",
+      "start": 132.8,
+      "end": 135.28,
+      "text": "So, you can write 2 questions,",
+      "id": 42
+    },
+    {
+      "timestamp": "02:15",
+      "start": 135.28,
+      "end": 137.12,
+      "text": "or you can write 2 questions,",
+      "id": 43
+    },
+    {
+      "timestamp": "02:17",
+      "start": 137.12,
+      "end": 138.2,
+      "text": "or you can write 1 or 2.",
+      "id": 44
+    },
+    {
+      "timestamp": "02:18",
+      "start": 138.2,
+      "end": 139.52,
+      "text": "So, how can you write them?",
+      "id": 45
+    },
+    {
+      "timestamp": "02:19",
+      "start": 139.52,
+      "end": 142.24,
+      "text": "But, you can write 4 papers of 4.",
+      "id": 46
+    },
+    {
+      "timestamp": "02:22",
+      "start": 142.28,
+      "end": 144.12,
+      "text": "If you talk about the net,",
+      "id": 47
+    },
+    {
+      "timestamp": "02:24",
+      "start": 144.12,
+      "end": 145.36,
+      "text": "then, you can say,",
+      "id": 48
+    },
+    {
+      "timestamp": "02:25",
+      "start": 145.36,
+      "end": 146.72,
+      "text": "that you can write 4 marks,",
+      "id": 49
+    },
+    {
+      "timestamp": "02:26",
+      "start": 146.72,
+      "end": 148.84,
+      "text": "and this can be written 4 marks,",
+      "id": 50
+    },
+    {
+      "timestamp": "02:28",
+      "start": 148.84,
+      "end": 150.76,
+      "text": "and you can write it,",
+      "id": 51
+    },
+    {
+      "timestamp": "02:30",
+      "start": 150.76,
+      "end": 152.92,
+      "text": "there is no need for it to be written.",
+      "id": 52
+    },
+    {
+      "timestamp": "02:32",
+      "start": 152.92,
+      "end": 153.76,
+      "text": "Getting the word.",
+      "id": 53
+    },
+    {
+      "timestamp": "02:33",
+      "start": 153.76,
+      "end": 155.12,
+      "text": "So, let's start.",
+      "id": 54
+    },
+    {
+      "timestamp": "02:35",
+      "start": 155.12,
+      "end": 157.24,
+      "text": "The words mentioned in the syllabus,",
+      "id": 55
+    },
+    {
+      "timestamp": "02:37",
+      "start": 157.24,
+      "end": 159.04,
+      "text": "the five topics mentioned here,",
+      "id": 56
+    },
+    {
+      "timestamp": "02:39",
+      "start": 159.04,
+      "end": 161.16,
+      "text": "the phases of the compiler,",
+      "id": 57
+    },
+    {
+      "timestamp": "02:41",
+      "start": 161.16,
+      "end": 163.68,
+      "text": "which we will discuss in the next video,",
+      "id": 58
+    },
+    {
+      "timestamp": "02:43",
+      "start": 163.68,
+      "end": 166.92,
+      "text": "are the five phases of the syllabus.",
+      "id": 59
+    },
+    {
+      "timestamp": "02:46",
+      "start": 166.92,
+      "end": 168.2,
+      "text": "So, the first topic is,",
+      "id": 60
+    },
+    {
+      "timestamp": "02:48",
+      "start": 168.2,
+      "end": 170.04,
+      "text": "we have the physical analysis.",
+      "id": 61
+    },
+    {
+      "timestamp": "02:50",
+      "start": 170.04,
+      "end": 172.4,
+      "text": "The first phase is the physical analysis,",
+      "id": 62
+    },
+    {
+      "timestamp": "02:52",
+      "start": 172.4,
+      "end": 174.56,
+      "text": "which we will talk about tokenization.",
+      "id": 63
+    },
+    {
+      "timestamp": "02:54",
+      "start": 174.56,
+      "end": 175.88,
+      "text": "That is a major point.",
+      "id": 64
+    },
+    {
+      "timestamp": "02:55",
+      "start": 175.88,
+      "end": 177.48,
+      "text": "So, there,",
+      "id": 65
+    },
+    {
+      "timestamp": "02:57",
+      "start": 177.48,
+      "end": 179.68,
+      "text": "there is also a question of number one.",
+      "id": 66
+    },
+    {
+      "timestamp": "02:59",
+      "start": 179.68,
+      "end": 180.72,
+      "text": "It is an easy topic.",
+      "id": 67
+    },
+    {
+      "timestamp": "03:00",
+      "start": 180.72,
+      "end": 181.64,
+      "text": "Next topic,",
+      "id": 68
+    },
+    {
+      "timestamp": "03:01",
+      "start": 181.64,
+      "end": 184.64,
+      "text": "the passing is the most important, guys.",
+      "id": 69
+    },
+    {
+      "timestamp": "03:04",
+      "start": 184.64,
+      "end": 186.24,
+      "text": "You can say that,",
+      "id": 70
+    },
+    {
+      "timestamp": "03:06",
+      "start": 186.24,
+      "end": 188.96,
+      "text": "I mean, the core of the task,",
+      "id": 71
+    },
+    {
+      "timestamp": "03:08",
+      "start": 188.96,
+      "end": 191.68,
+      "text": "the most important thing of the whole syllabus,",
+      "id": 72
+    },
+    {
+      "timestamp": "03:11",
+      "start": 191.68,
+      "end": 195.2,
+      "text": "the most important thing is the passing.",
+      "id": 73
+    },
+    {
+      "timestamp": "03:15",
+      "start": 195.2,
+      "end": 197.32,
+      "text": "And, we have the passing,",
+      "id": 74
+    },
+    {
+      "timestamp": "03:17",
+      "start": 197.32,
+      "end": 199.0,
+      "text": "top down, bottom,",
+      "id": 75
+    },
+    {
+      "timestamp": "03:19",
+      "start": 199.0,
+      "end": 200.4,
+      "text": "parser, top down,",
+      "id": 76
+    },
+    {
+      "timestamp": "03:20",
+      "start": 200.4,
+      "end": 202.12,
+      "text": "the most important thing is,",
+      "id": 77
+    },
+    {
+      "timestamp": "03:22",
+      "start": 202.12,
+      "end": 203.36,
+      "text": "that is your LL parser.",
+      "id": 78
+    },
+    {
+      "timestamp": "03:23",
+      "start": 203.36,
+      "end": 205.4,
+      "text": "And, if we talk about the bottom up,",
+      "id": 79
+    },
+    {
+      "timestamp": "03:25",
+      "start": 205.4,
+      "end": 207.16,
+      "text": "there, there is SL,",
+      "id": 80
+    },
+    {
+      "timestamp": "03:27",
+      "start": 207.16,
+      "end": 209.16,
+      "text": "LL, LL,",
+      "id": 81
+    },
+    {
+      "timestamp": "03:29",
+      "start": 209.16,
+      "end": 211.8,
+      "text": "there, we will discuss about it.",
+      "id": 82
+    },
+    {
+      "timestamp": "03:31",
+      "start": 211.8,
+      "end": 213.4,
+      "text": "In the semantic analysis,",
+      "id": 83
+    },
+    {
+      "timestamp": "03:33",
+      "start": 213.4,
+      "end": 216.24,
+      "text": "we will talk about the SDD syntax,",
+      "id": 84
+    },
+    {
+      "timestamp": "03:36",
+      "start": 216.24,
+      "end": 218.68,
+      "text": "directory translation language,",
+      "id": 85
+    },
+    {
+      "timestamp": "03:38",
+      "start": 218.68,
+      "end": 221.16,
+      "text": "which basically, we will talk about the semantic,",
+      "id": 86
+    },
+    {
+      "timestamp": "03:41",
+      "start": 221.16,
+      "end": 224.08,
+      "text": "rules according to which we will perform.",
+      "id": 87
+    },
+    {
+      "timestamp": "03:44",
+      "start": 224.08,
+      "end": 225.24,
+      "text": "I will tell you,",
+      "id": 88
+    },
+    {
+      "timestamp": "03:45",
+      "start": 225.24,
+      "end": 227.08,
+      "text": "one of the easiest portions.",
+      "id": 89
+    },
+    {
+      "timestamp": "03:47",
+      "start": 227.12,
+      "end": 228.92,
+      "text": "It is a very easy portion.",
+      "id": 90
+    },
+    {
+      "timestamp": "03:48",
+      "start": 228.92,
+      "end": 230.8,
+      "text": "It is a very easy portion.",
+      "id": 91
+    },
+    {
+      "timestamp": "03:50",
+      "start": 230.8,
+      "end": 232.76,
+      "text": "Then, intermediate code generation,",
+      "id": 92
+    },
+    {
+      "timestamp": "03:52",
+      "start": 232.76,
+      "end": 235.6,
+      "text": "which we will talk about here,",
+      "id": 93
+    },
+    {
+      "timestamp": "03:55",
+      "start": 235.6,
+      "end": 237.48,
+      "text": "we have post-fix code,",
+      "id": 94
+    },
+    {
+      "timestamp": "03:57",
+      "start": 237.48,
+      "end": 239.16,
+      "text": "we have three addresses,",
+      "id": 95
+    },
+    {
+      "timestamp": "03:59",
+      "start": 239.16,
+      "end": 239.88,
+      "text": "DAG,",
+      "id": 96
+    },
+    {
+      "timestamp": "03:59",
+      "start": 239.88,
+      "end": 241.56,
+      "text": "but one of the most important,",
+      "id": 97
+    },
+    {
+      "timestamp": "04:01",
+      "start": 241.56,
+      "end": 242.76,
+      "text": "your three addresses.",
+      "id": 98
+    },
+    {
+      "timestamp": "04:02",
+      "start": 242.76,
+      "end": 244.92,
+      "text": "So, here, there are many times,",
+      "id": 99
+    },
+    {
+      "timestamp": "04:04",
+      "start": 244.92,
+      "end": 247.96,
+      "text": "or your combative exam questions are very common.",
+      "id": 100
+    },
+    {
+      "timestamp": "04:07",
+      "start": 247.96,
+      "end": 250.88,
+      "text": "So, I will talk about the next important,",
+      "id": 101
+    },
+    {
+      "timestamp": "04:10",
+      "start": 250.88,
+      "end": 252.48,
+      "text": "intermediate code generator.",
+      "id": 102
+    },
+    {
+      "timestamp": "04:12",
+      "start": 252.48,
+      "end": 254.12,
+      "text": "Then, we have the final code,",
+      "id": 103
+    },
+    {
+      "timestamp": "04:14",
+      "start": 254.12,
+      "end": 255.2,
+      "text": "optimization,",
+      "id": 104
+    },
+    {
+      "timestamp": "04:15",
+      "start": 255.2,
+      "end": 256.44,
+      "text": "simple topic,",
+      "id": 105
+    },
+    {
+      "timestamp": "04:16",
+      "start": 256.44,
+      "end": 258.04,
+      "text": "machine-dependent coding,",
+      "id": 106
+    },
+    {
+      "timestamp": "04:18",
+      "start": 258.04,
+      "end": 259.56,
+      "text": "machine-independent coding,",
+      "id": 107
+    },
+    {
+      "timestamp": "04:19",
+      "start": 259.56,
+      "end": 261.48,
+      "text": "how we can optimize the code,",
+      "id": 108
+    },
+    {
+      "timestamp": "04:21",
+      "start": 261.48,
+      "end": 262.84,
+      "text": "code optimization means,",
+      "id": 109
+    },
+    {
+      "timestamp": "04:22",
+      "start": 262.84,
+      "end": 264.96,
+      "text": "reducing time complexity,",
+      "id": 110
+    },
+    {
+      "timestamp": "04:24",
+      "start": 264.96,
+      "end": 267.0,
+      "text": "reducing space complexity,",
+      "id": 111
+    },
+    {
+      "timestamp": "04:27",
+      "start": 267.0,
+      "end": 269.04,
+      "text": "instructions can be written in this way,",
+      "id": 112
+    },
+    {
+      "timestamp": "04:29",
+      "start": 269.04,
+      "end": 271.4,
+      "text": "so that my time is less or less.",
+      "id": 113
+    },
+    {
+      "timestamp": "04:31",
+      "start": 271.4,
+      "end": 273.52,
+      "text": "That is your code optimization.",
+      "id": 114
+    },
+    {
+      "timestamp": "04:33",
+      "start": 273.52,
+      "end": 275.64,
+      "text": "So, this is also your easy topic,",
+      "id": 115
+    },
+    {
+      "timestamp": "04:35",
+      "start": 275.64,
+      "end": 277.4,
+      "text": "this is also your easy topic,",
+      "id": 116
+    },
+    {
+      "timestamp": "04:37",
+      "start": 277.4,
+      "end": 280.0,
+      "text": "which you can little bit pressure,",
+      "id": 117
+    },
+    {
+      "timestamp": "04:40",
+      "start": 280.0,
+      "end": 281.2,
+      "text": "that is your passing.",
+      "id": 118
+    },
+    {
+      "timestamp": "04:41",
+      "start": 281.2,
+      "end": 282.0,
+      "text": "Because,",
+      "id": 119
+    },
+    {
+      "timestamp": "04:42",
+      "start": 282.0,
+      "end": 284.64,
+      "text": "you need to remember some steps,",
+      "id": 120
+    },
+    {
+      "timestamp": "04:44",
+      "start": 284.64,
+      "end": 285.64,
+      "text": "remember,",
+      "id": 121
+    },
+    {
+      "timestamp": "04:45",
+      "start": 285.68,
+      "end": 287.16,
+      "text": "I am not saying you are craming.",
+      "id": 122
+    },
+    {
+      "timestamp": "04:47",
+      "start": 287.16,
+      "end": 288.24,
+      "text": "Craming,",
+      "id": 123
+    },
+    {
+      "timestamp": "04:48",
+      "start": 288.24,
+      "end": 290.6,
+      "text": "all the points are logical,",
+      "id": 124
+    },
+    {
+      "timestamp": "04:50",
+      "start": 290.6,
+      "end": 292.48,
+      "text": "but the steps are a little bigger.",
+      "id": 125
+    },
+    {
+      "timestamp": "04:52",
+      "start": 292.48,
+      "end": 294.08,
+      "text": "So, there is a point,",
+      "id": 126
+    },
+    {
+      "timestamp": "04:54",
+      "start": 294.08,
+      "end": 295.52,
+      "text": "which I can note,",
+      "id": 127
+    },
+    {
+      "timestamp": "04:55",
+      "start": 295.52,
+      "end": 297.64,
+      "text": "the rest of the topic is very easy.",
+      "id": 128
+    },
+    {
+      "timestamp": "04:57",
+      "start": 297.64,
+      "end": 298.56,
+      "text": "So, this is why,",
+      "id": 129
+    },
+    {
+      "timestamp": "04:58",
+      "start": 298.56,
+      "end": 300.8,
+      "text": "note all the points,",
+      "id": 130
+    },
+    {
+      "timestamp": "05:00",
+      "start": 300.8,
+      "end": 303.36,
+      "text": "and we will discuss all the points.",
+      "id": 131
+    },
+    {
+      "timestamp": "05:03",
+      "start": 303.36,
+      "end": 304.76,
+      "text": "So, here, I will tell you,",
+      "id": 132
+    },
+    {
+      "timestamp": "05:04",
+      "start": 304.76,
+      "end": 305.56,
+      "text": "pre-request,",
+      "id": 133
+    },
+    {
+      "timestamp": "05:05",
+      "start": 305.56,
+      "end": 306.68,
+      "text": "pre-request means,",
+      "id": 134
+    },
+    {
+      "timestamp": "05:06",
+      "start": 306.68,
+      "end": 307.68,
+      "text": "that,",
+      "id": 135
+    },
+    {
+      "timestamp": "05:07",
+      "start": 307.68,
+      "end": 309.2,
+      "text": "before doing anything,",
+      "id": 136
+    },
+    {
+      "timestamp": "05:09",
+      "start": 309.2,
+      "end": 310.4,
+      "text": "what should be done?",
+      "id": 137
+    },
+    {
+      "timestamp": "05:10",
+      "start": 310.4,
+      "end": 312.44,
+      "text": "For example, we are going to shop,",
+      "id": 138
+    },
+    {
+      "timestamp": "05:12",
+      "start": 312.44,
+      "end": 314.44,
+      "text": "and if we are going to shop,",
+      "id": 139
+    },
+    {
+      "timestamp": "05:14",
+      "start": 314.48,
+      "end": 316.08,
+      "text": "then, if we are going to shop,",
+      "id": 140
+    },
+    {
+      "timestamp": "05:16",
+      "start": 316.08,
+      "end": 317.68,
+      "text": "we are going to shop,",
+      "id": 141
+    },
+    {
+      "timestamp": "05:17",
+      "start": 317.68,
+      "end": 318.76,
+      "text": "so, what should be done?",
+      "id": 142
+    },
+    {
+      "timestamp": "05:18",
+      "start": 318.76,
+      "end": 320.08,
+      "text": "So, here,",
+      "id": 143
+    },
+    {
+      "timestamp": "05:20",
+      "start": 320.08,
+      "end": 321.28,
+      "text": "if we are going to shop,",
+      "id": 144
+    },
+    {
+      "timestamp": "05:21",
+      "start": 321.28,
+      "end": 323.08,
+      "text": "we are going to shop,",
+      "id": 145
+    },
+    {
+      "timestamp": "05:23",
+      "start": 323.08,
+      "end": 324.88,
+      "text": "basic knowledge of theory of computation.",
+      "id": 146
+    },
+    {
+      "timestamp": "05:24",
+      "start": 324.88,
+      "end": 326.0,
+      "text": "That is more than sufficient,",
+      "id": 147
+    },
+    {
+      "timestamp": "05:26",
+      "start": 326.0,
+      "end": 327.0,
+      "text": "if it is not sufficient,",
+      "id": 148
+    },
+    {
+      "timestamp": "05:27",
+      "start": 327.0,
+      "end": 328.76,
+      "text": "then, if it is not enough,",
+      "id": 149
+    },
+    {
+      "timestamp": "05:28",
+      "start": 328.76,
+      "end": 330.0,
+      "text": "then, I will tell you,",
+      "id": 150
+    },
+    {
+      "timestamp": "05:30",
+      "start": 330.0,
+      "end": 330.92,
+      "text": "in a little bit of a point,",
+      "id": 151
+    },
+    {
+      "timestamp": "05:30",
+      "start": 330.92,
+      "end": 331.92,
+      "text": "otherwise,",
+      "id": 152
+    },
+    {
+      "timestamp": "05:31",
+      "start": 331.92,
+      "end": 333.12,
+      "text": "the playlist is already there,",
+      "id": 153
+    },
+    {
+      "timestamp": "05:33",
+      "start": 333.12,
+      "end": 334.52,
+      "text": "so, you can shop a little bit,",
+      "id": 154
+    },
+    {
+      "timestamp": "05:34",
+      "start": 334.52,
+      "end": 335.32,
+      "text": "I can read it,",
+      "id": 155
+    },
+    {
+      "timestamp": "05:35",
+      "start": 335.32,
+      "end": 335.92,
+      "text": "what can be done?",
+      "id": 156
+    },
+    {
+      "timestamp": "05:35",
+      "start": 335.92,
+      "end": 337.12,
+      "text": "I will tell you,",
+      "id": 157
+    },
+    {
+      "timestamp": "05:37",
+      "start": 337.12,
+      "end": 337.72,
+      "text": "okay, now,",
+      "id": 158
+    },
+    {
+      "timestamp": "05:37",
+      "start": 337.72,
+      "end": 338.72,
+      "text": "mainly, here,",
+      "id": 159
+    },
+    {
+      "timestamp": "05:38",
+      "start": 338.72,
+      "end": 339.92,
+      "text": "we are going to talk about,",
+      "id": 160
+    },
+    {
+      "timestamp": "05:39",
+      "start": 339.92,
+      "end": 341.4,
+      "text": "finite automata,",
+      "id": 161
+    },
+    {
+      "timestamp": "05:41",
+      "start": 341.4,
+      "end": 342.8,
+      "text": "regular languages,",
+      "id": 162
+    },
+    {
+      "timestamp": "05:42",
+      "start": 342.8,
+      "end": 343.92,
+      "text": "context-free languages,",
+      "id": 163
+    },
+    {
+      "timestamp": "05:43",
+      "start": 343.92,
+      "end": 345.36,
+      "text": "or grammar,",
+      "id": 164
+    },
+    {
+      "timestamp": "05:45",
+      "start": 345.36,
+      "end": 346.16,
+      "text": "so, in between,",
+      "id": 165
+    },
+    {
+      "timestamp": "05:46",
+      "start": 346.16,
+      "end": 348.16,
+      "text": "I will guide you a little bit,",
+      "id": 166
+    },
+    {
+      "timestamp": "05:48",
+      "start": 348.16,
+      "end": 349.96,
+      "text": "the second computer organization,",
+      "id": 167
+    },
+    {
+      "timestamp": "05:49",
+      "start": 349.96,
+      "end": 351.24,
+      "text": "is also a dark architecture,",
+      "id": 168
+    },
+    {
+      "timestamp": "05:51",
+      "start": 351.24,
+      "end": 353.56,
+      "text": "you should have knowledge of everything,",
+      "id": 169
+    },
+    {
+      "timestamp": "05:53",
+      "start": 353.56,
+      "end": 355.16,
+      "text": "what are the instructions,",
+      "id": 170
+    },
+    {
+      "timestamp": "05:55",
+      "start": 355.16,
+      "end": 356.88,
+      "text": "how the instructions are executed,",
+      "id": 171
+    },
+    {
+      "timestamp": "05:56",
+      "start": 356.88,
+      "end": 357.76,
+      "text": "the addressing mode,",
+      "id": 172
+    },
+    {
+      "timestamp": "05:57",
+      "start": 357.76,
+      "end": 358.44,
+      "text": "basic knowledge,",
+      "id": 173
+    },
+    {
+      "timestamp": "05:58",
+      "start": 358.44,
+      "end": 359.44,
+      "text": "you should have knowledge of everything,",
+      "id": 174
+    },
+    {
+      "timestamp": "05:59",
+      "start": 359.44,
+      "end": 360.44,
+      "text": "and not,",
+      "id": 175
+    },
+    {
+      "timestamp": "06:00",
+      "start": 360.44,
+      "end": 362.24,
+      "text": "then, there will be no problem,",
+      "id": 176
+    },
+    {
+      "timestamp": "06:02",
+      "start": 362.24,
+      "end": 363.92,
+      "text": "I will read it in this way,",
+      "id": 177
+    },
+    {
+      "timestamp": "06:03",
+      "start": 363.92,
+      "end": 366.68,
+      "text": "that you will not be able to do any doubt,",
+      "id": 178
+    },
+    {
+      "timestamp": "06:06",
+      "start": 366.68,
+      "end": 367.0,
+      "text": "but,",
+      "id": 179
+    },
+    {
+      "timestamp": "06:07",
+      "start": 367.0,
+      "end": 368.8,
+      "text": "you can read it a little bit,",
+      "id": 180
+    },
+    {
+      "timestamp": "06:08",
+      "start": 368.8,
+      "end": 369.8,
+      "text": "from the beginning,",
+      "id": 181
+    },
+    {
+      "timestamp": "06:09",
+      "start": 369.8,
+      "end": 370.4,
+      "text": "so that,",
+      "id": 182
+    },
+    {
+      "timestamp": "06:10",
+      "start": 370.4,
+      "end": 371.4,
+      "text": "you can understand,",
+      "id": 183
+    },
+    {
+      "timestamp": "06:11",
+      "start": 371.4,
+      "end": 372.24,
+      "text": "the easy,",
+      "id": 184
+    },
+    {
+      "timestamp": "06:12",
+      "start": 372.24,
+      "end": 373.24,
+      "text": "the points,",
+      "id": 185
+    },
+    {
+      "timestamp": "06:13",
+      "start": 373.24,
+      "end": 374.24,
+      "text": "all of them,",
+      "id": 186
+    },
+    {
+      "timestamp": "06:14",
+      "start": 374.24,
+      "end": 375.24,
+      "text": "so, basically,",
+      "id": 187
+    },
+    {
+      "timestamp": "06:15",
+      "start": 375.24,
+      "end": 377.24,
+      "text": "you should note all these points,",
+      "id": 188
+    },
+    {
+      "timestamp": "06:17",
+      "start": 377.24,
+      "end": 378.24,
+      "text": "so, from the next video,",
+      "id": 189
+    },
+    {
+      "timestamp": "06:18",
+      "start": 378.24,
+      "end": 379.24,
+      "text": "we are going to start,",
+      "id": 190
+    },
+    {
+      "timestamp": "06:19",
+      "start": 379.24,
+      "end": 381.24,
+      "text": "phases of the compiler,",
+      "id": 191
+    },
+    {
+      "timestamp": "06:21",
+      "start": 381.24,
+      "end": 382.24,
+      "text": "thank you.",
+      "id": 192
+    }
+  ],
+  "slides": [
+    {
+      "id": 0,
+      "slide_number": 1,
+      "title": "Compiler Design Syllabus Guide",
+      "bullets": [
+        "For Competitive Exams (GATE/Placement) & University Exams"
+      ],
+      "text": "Compiler Design Syllabus Guide For Competitive Exams (GATE/Placement) & University Exams",
+      "sections": [
+        "Compiler Design Syllabus Guide For Competitive Exams (GATE/Placement) & University Exams"
+      ]
+    },
+    {
+      "id": 1,
+      "slide_number": 2,
+      "title": "Introduction to Compiler Design",
+      "bullets": [
+        "Definition of compiler, interpreter, assembler",
+        "Language processing system overview",
+        "Compiler vs Interpreter vs Cross Compiler"
+      ],
+      "text": "Introduction to Compiler Design Definition of compiler, interpreter, assembler Language processing system overview Compiler vs Interpreter vs Cross Compiler",
+      "sections": [
+        "Introduction to Compiler Design Definition of compiler, interpreter, assembler Language processing system overview Compiler vs Interpreter vs Cross Compiler"
+      ]
+    },
+    {
+      "id": 2,
+      "slide_number": 3,
+      "title": "Phases of Compiler",
+      "bullets": [
+        "Lexical Analysis",
+        "Syntax Analysis",
+        "Semantic Analysis",
+        "Intermediate Code Generation",
+        "Code Optimization",
+        "Code Generation"
+      ],
+      "text": "Phases of Compiler Lexical Analysis Syntax Analysis Semantic Analysis Intermediate Code Generation Code Optimization Code Generation",
+      "sections": [
+        "Phases of Compiler Lexical Analysis Syntax Analysis Semantic Analysis Intermediate Code Generation Code Optimization Code Generation"
+      ]
+    },
+    {
+      "id": 3,
+      "slide_number": 4,
+      "title": "Lexical Analysis",
+      "bullets": [
+        "Tokens, lexemes, patterns",
+        "Finite Automata & RE to DFA",
+        "Lex tools and symbol table basics"
+      ],
+      "text": "Lexical Analysis Tokens, lexemes, patterns Finite Automata & RE to DFA Lex tools and symbol table basics",
+      "sections": [
+        "Lexical Analysis Tokens, lexemes, patterns Finite Automata & RE to DFA Lex tools and symbol table basics"
+      ]
+    },
+    {
+      "id": 4,
+      "slide_number": 5,
+      "title": "Syntax Analysis",
+      "bullets": [
+        "CFG, derivations, parse trees",
+        "Top-down parsing: Recursive descent, LL(1)",
+        "Bottom-up parsing: Shift reduce, LR parsers"
+      ],
+      "text": "Syntax Analysis CFG, derivations, parse trees Top-down parsing: Recursive descent, LL(1) Bottom-up parsing: Shift reduce, LR parsers",
+      "sections": [
+        "Syntax Analysis CFG, derivations, parse trees Top-down parsing: Recursive descent, LL(1) Bottom-up parsing: Shift reduce, LR parsers"
+      ]
+    },
+    {
+      "id": 5,
+      "slide_number": 6,
+      "title": "FIRST, FOLLOW & Parsing Tables",
+      "bullets": [
+        "FIRST and FOLLOW rules",
+        "LL(1) parsing table construction",
+        "Left recursion & left factoring"
+      ],
+      "text": "FIRST, FOLLOW & Parsing Tables FIRST and FOLLOW rules LL(1) parsing table construction Left recursion & left factoring",
+      "sections": [
+        "FIRST, FOLLOW & Parsing Tables FIRST and FOLLOW rules LL(1) parsing table construction Left recursion & left factoring"
+      ]
+    },
+    {
+      "id": 6,
+      "slide_number": 7,
+      "title": "LR Family",
+      "bullets": [
+        "SLR",
+        "CLR (Canonical LR)",
+        "LALR"
+      ],
+      "text": "LR Family SLR CLR (Canonical LR) LALR",
+      "sections": [
+        "LR Family SLR CLR (Canonical LR) LALR"
+      ]
+    },
+    {
+      "id": 7,
+      "slide_number": 8,
+      "title": "Semantic Analysis & SDT",
+      "bullets": [
+        "Syntax Directed Definitions",
+        "Type checking",
+        "Annotated parse trees"
+      ],
+      "text": "Semantic Analysis & SDT Syntax Directed Definitions Type checking Annotated parse trees",
+      "sections": [
+        "Semantic Analysis & SDT Syntax Directed Definitions Type checking Annotated parse trees"
+      ]
+    },
+    {
+      "id": 8,
+      "slide_number": 9,
+      "title": "Intermediate Code Generation",
+      "bullets": [
+        "Three address code",
+        "Quadruples, triples, indirect triples",
+        "Postfix notation"
+      ],
+      "text": "Intermediate Code Generation Three address code Quadruples, triples, indirect triples Postfix notation",
+      "sections": [
+        "Intermediate Code Generation Three address code Quadruples, triples, indirect triples Postfix notation"
+      ]
+    },
+    {
+      "id": 9,
+      "slide_number": 10,
+      "title": "Code Optimization",
+      "bullets": [
+        "Machine independent optimization",
+        "Constant folding, dead code elimination",
+        "Loop optimization"
+      ],
+      "text": "Code Optimization Machine independent optimization Constant folding, dead code elimination Loop optimization",
+      "sections": [
+        "Code Optimization Machine independent optimization Constant folding, dead code elimination Loop optimization"
+      ]
+    },
+    {
+      "id": 10,
+      "slide_number": 11,
+      "title": "Code Generation",
+      "bullets": [
+        "Register allocation",
+        "Target code generation",
+        "Basic blocks and flow graphs"
+      ],
+      "text": "Code Generation Register allocation Target code generation Basic blocks and flow graphs",
+      "sections": [
+        "Code Generation Register allocation Target code generation Basic blocks and flow graphs"
+      ]
+    },
+    {
+      "id": 11,
+      "slide_number": 12,
+      "title": "Exam Preparation Strategy",
+      "bullets": [
+        "Focus on parsing algorithms for university exams",
+        "Practice MCQs on DFA/NFA, parsing for competitive exams",
+        "Revise formulas, parser tables, and optimization techniques"
+      ],
+      "text": "Exam Preparation Strategy Focus on parsing algorithms for university exams Practice MCQs on DFA/NFA, parsing for competitive exams Revise formulas, parser tables, and optimization techniques",
+      "sections": [
+        "Exam Preparation Strategy Focus on parsing algorithms for university exams Practice MCQs on DFA/NFA, parsing for competitive exams Revise formulas, parser tables, and optimization techniques"
+      ]
+    },
+    {
+      "id": 12,
+      "slide_number": 13,
+      "title": "Important Questions",
+      "bullets": [
+        "Explain phases of compiler with diagram",
+        "Construct LL(1) parsing table",
+        "Differentiate SLR, CLR, LALR",
+        "Write short notes on code optimization",
+        "Explain symbol table functions"
+      ],
+      "text": "Important Questions Explain phases of compiler with diagram Construct LL(1) parsing table Differentiate SLR, CLR, LALR Write short notes on code optimization Explain symbol table functions",
+      "sections": [
+        "Important Questions Explain phases of compiler with diagram Construct LL(1) parsing table Differentiate SLR, CLR, LALR Write short notes on code optimization Explain symbol table functions"
+      ]
+    },
+    {
+      "id": 13,
+      "slide_number": 14,
+      "title": "Quick Revision Tips",
+      "bullets": [
+        "Remember compiler phases in sequence",
+        "Practice FIRST/FOLLOW daily",
+        "Master LL(1) and LR parser construction",
+        "Focus on previous year university & GATE questions"
+      ],
+      "text": "Quick Revision Tips Remember compiler phases in sequence Practice FIRST/FOLLOW daily Master LL(1) and LR parser construction Focus on previous year university & GATE questions",
+      "sections": [
+        "Quick Revision Tips Remember compiler phases in sequence Practice FIRST/FOLLOW daily Master LL(1) and LR parser construction Focus on previous year university & GATE questions"
+      ]
+    }
+  ],
+  "annotations": [
+    {
+      "id": 50,
+      "timestamp": "02:26",
+      "start": 0.0,
+      "end": 244.92,
+      "text": "Hello students, welcome to GatesMeshers. Today's video is going to start with compiler design. So, since you are preparing for a competitive exam like gate exam, net, net, net, net, any PSU exam in which Slevas's topic is mentioned in this topic. Or you are also preparing for a college or university exam. So, I will tell you about the entire series of compiler design. These are all the points you will be able to help a lot. And guys, I will tell you all the points to note well. I am bringing you a clear and clear video. And I will tell you that the most important points in this video, where students can make this compiler design a little tricky and complex. I have never focused on this much. I used to leave the topic on the topic of the exam, that the topic of the rest is coming. But, you will not be able to make this. But, all the points are important. Each and every subject is very important. And this is also very important in real life. You use all the programming languages. We are using all the high level languages. But, how the computer is evaluating it? How the computer is converting it to low level, machine level, and the compiler of the compiler. So, here I will tell you, I have never focused on this. But, actually, this is the case, that if we talk about the part, then, what happens when we talk about the part, that normally, it starts to look scary, that what is this? But, as soon as you reach the peak, it will not be able to reach the peak. So, that is the point here. It will start, and it will start, and it will start, it will be very difficult. But, when you reach the peak, then you will find out, that there is nothing, it is very scary in such cases. So, this is the compiler design. I will tell you, in the same way, I am taking clear and crisp videos for you. So, check all the videos carefully. If I tell you, for example, that you can talk about the gate part, then, you can write 4 marks of the important part. So, you can write 2 questions, or you can write 2 questions, or you can write 1 or 2. So, how can you write them? But, you can write 4 papers of 4. If you talk about the net, then, you can say, that you can write 4 marks, and this can be written 4 marks, and you can write it, there is no need for it to be written. Getting the word. So, let's start. The words mentioned in the syllabus, the five topics mentioned here, the phases of the compiler, which we will discuss in the next video, are the five phases of the syllabus. So, the first topic is, we have the physical analysis. The first phase is the physical analysis, which we will talk about tokenization. That is a major point. So, there, there is also a question of number one. It is an easy topic. Next topic, the passing is the most important, guys. You can say that, I mean, the core of the task, the most important thing of the whole syllabus, the most important thing is the passing. And, we have the passing, top down, bottom, parser, top down, the most important thing is, that is your LL parser. And, if we talk about the bottom up, there, there is SL, LL, LL, there, we will discuss about it. In the semantic analysis, we will talk about the SDD syntax, directory translation language, which basically, we will talk about the semantic, rules according to which we will perform. I will tell you, one of the easiest portions. It is a very easy portion. It is a very easy portion. Then, intermediate code generation, which we will talk about here, we have post-fix code, we have three addresses, DAG, but one of the most important, your three addresses. So, here, there are many times,",
+      "concepts": [
+        {
+          "concept": "General Discussion",
+          "explanation": "No detailed annotations available due to API rate limits.",
+          "importance": "low"
+        }
+      ],
+      "primary_concept": "General Discussion"
+    },
+    {
+      "id": 146,
+      "timestamp": "05:23",
+      "start": 244.92,
+      "end": 382.24,
+      "text": "or your combative exam questions are very common. So, I will talk about the next important, intermediate code generator. Then, we have the final code, optimization, simple topic, machine-dependent coding, machine-independent coding, how we can optimize the code, code optimization means, reducing time complexity, reducing space complexity, instructions can be written in this way, so that my time is less or less. That is your code optimization. So, this is also your easy topic, this is also your easy topic, which you can little bit pressure, that is your passing. Because, you need to remember some steps, remember, I am not saying you are craming. Craming, all the points are logical, but the steps are a little bigger. So, there is a point, which I can note, the rest of the topic is very easy. So, this is why, note all the points, and we will discuss all the points. So, here, I will tell you, pre-request, pre-request means, that, before doing anything, what should be done? For example, we are going to shop, and if we are going to shop, then, if we are going to shop, we are going to shop, so, what should be done? So, here, if we are going to shop, we are going to shop, basic knowledge of theory of computation. That is more than sufficient, if it is not sufficient, then, if it is not enough, then, I will tell you, in a little bit of a point, otherwise, the playlist is already there, so, you can shop a little bit, I can read it, what can be done? I will tell you, okay, now, mainly, here, we are going to talk about, finite automata, regular languages, context-free languages, or grammar, so, in between, I will guide you a little bit, the second computer organization, is also a dark architecture, you should have knowledge of everything, what are the instructions, how the instructions are executed, the addressing mode, basic knowledge, you should have knowledge of everything, and not, then, there will be no problem, I will read it in this way, that you will not be able to do any doubt, but, you can read it a little bit, from the beginning, so that, you can understand, the easy, the points, all of them, so, basically, you should note all these points, so, from the next video, we are going to start, phases of the compiler, thank you.",
+      "concepts": [
+        {
+          "concept": "General Discussion",
+          "explanation": "No detailed annotations available due to API rate limits.",
+          "importance": "low"
+        }
+      ],
+      "primary_concept": "General Discussion"
+    }
+  ],
+  "alignment": [
+    {
+      "segment_id": 50,
+      "timestamp": "02:26",
+      "start": 0.0,
+      "end": 244.92,
+      "text": "Hello students, welcome to GatesMeshers. Today's video is going to start with compiler design. So, since you are preparing for a competitive exam like gate exam, net, net, net, net, any PSU exam in which Slevas's topic is mentioned in this topic. Or you are also preparing for a college or university exam. So, I will tell you about the entire series of compiler design. These are all the points you will be able to help a lot. And guys, I will tell you all the points to note well. I am bringing you a clear and clear video. And I will tell you that the most important points in this video, where students can make this compiler design a little tricky and complex. I have never focused on this much. I used to leave the topic on the topic of the exam, that the topic of the rest is coming. But, you will not be able to make this. But, all the points are important. Each and every subject is very important. And this is also very important in real life. You use all the programming languages. We are using all the high level languages. But, how the computer is evaluating it? How the computer is converting it to low level, machine level, and the compiler of the compiler. So, here I will tell you, I have never focused on this. But, actually, this is the case, that if we talk about the part, then, what happens when we talk about the part, that normally, it starts to look scary, that what is this? But, as soon as you reach the peak, it will not be able to reach the peak. So, that is the point here. It will start, and it will start, and it will start, it will be very difficult. But, when you reach the peak, then you will find out, that there is nothing, it is very scary in such cases. So, this is the compiler design. I will tell you, in the same way, I am taking clear and crisp videos for you. So, check all the videos carefully. If I tell you, for example, that you can talk about the gate part, then, you can write 4 marks of the important part. So, you can write 2 questions, or you can write 2 questions, or you can write 1 or 2. So, how can you write them? But, you can write 4 papers of 4. If you talk about the net, then, you can say, that you can write 4 marks, and this can be written 4 marks, and you can write it, there is no need for it to be written. Getting the word. So, let's start. The words mentioned in the syllabus, the five topics mentioned here, the phases of the compiler, which we will discuss in the next video, are the five phases of the syllabus. So, the first topic is, we have the physical analysis. The first phase is the physical analysis, which we will talk about tokenization. That is a major point. So, there, there is also a question of number one. It is an easy topic. Next topic, the passing is the most important, guys. You can say that, I mean, the core of the task, the most important thing of the whole syllabus, the most important thing is the passing. And, we have the passing, top down, bottom, parser, top down, the most important thing is, that is your LL parser. And, if we talk about the bottom up, there, there is SL, LL, LL, there, we will discuss about it. In the semantic analysis, we will talk about the SDD syntax, directory translation language, which basically, we will talk about the semantic, rules according to which we will perform. I will tell you, one of the easiest portions. It is a very easy portion. It is a very easy portion. Then, intermediate code generation, which we will talk about here, we have post-fix code, we have three addresses, DAG, but one of the most important, your three addresses. So, here, there are many times,",
+      "video_text": "Hello students, welcome to GatesMeshers. Today's video is going to start with compiler design. So, since you are preparing for a competitive exam like gate exam, net, net, net, net, any PSU exam in which Slevas's topic is mentioned in this topic. Or you are also preparing for a college or university exam. So, I will tell you about the entire series of compiler design. These are all the points you will be able to help a lot. And guys, I will tell you all the points to note well. I am bringing you a clear and clear video. And I will tell you that the most important points in this video, where students can make this compiler design a little tricky and complex. I have never focused on this much. I used to leave the topic on the topic of the exam, that the topic of the rest is coming. But, you will not be able to make this. But, all the points are important. Each and every subject is very important. And this is also very important in real life. You use all the programming languages. We are using all the high level languages. But, how the computer is evaluating it? How the computer is converting it to low level, machine level, and the compiler of the compiler. So, here I will tell you, I have never focused on this. But, actually, this is the case, that if we talk about the part, then, what happens when we talk about the part, that normally, it starts to look scary, that what is this? But, as soon as you reach the peak, it will not be able to reach the peak. So, that is the point here. It will start, and it will start, and it will start, it will be very difficult. But, when you reach the peak, then you will find out, that there is nothing, it is very scary in such cases. So, this is the compiler design. I will tell you, in the same way, I am taking clear and crisp videos for you. So, check all the videos carefully. If I tell you, for example, that you can talk about the gate part, then, you can write 4 marks of the important part. So, you can write 2 questions, or you can write 2 questions, or you can write 1 or 2. So, how can you write them? But, you can write 4 papers of 4. If you talk about the net, then, you can say, that you can write 4 marks, and this can be written 4 marks, and you can write it, there is no need for it to be written. Getting the word. So, let's start. The words mentioned in the syllabus, the five topics mentioned here, the phases of the compiler, which we will discuss in the next video, are the five phases of the syllabus. So, the first topic is, we have the physical analysis. The first phase is the physical analysis, which we will talk about tokenization. That is a major point. So, there, there is also a question of number one. It is an easy topic. Next topic, the passing is the most important, guys. You can say that, I mean, the core of the task, the most important thing of the whole syllabus, the most important thing is the passing. And, we have the passing, top down, bottom, parser, top down, the most important thing is, that is your LL parser. And, if we talk about the bottom up, there, there is SL, LL, LL, there, we will discuss about it. In the semantic analysis, we will talk about the SDD syntax, directory translation language, which basically, we will talk about the semantic, rules according to which we will perform. I will tell you, one of the easiest portions. It is a very easy portion. It is a very easy portion. Then, intermediate code generation, which we will talk about here, we have post-fix code, we have three addresses, DAG, but one of the most important, your three addresses. So, here, there are many times,",
+      "match": {
+        "type": "unknown",
+        "id": 0,
+        "reason": "Fallback due to Gemini error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+        "confidence": 0.0
+      },
+      "slide_id": 0,
+      "slide_title": "Compiler Design Syllabus Guide",
+      "concept": "unknown",
+      "confidence": 0.0
+    },
+    {
+      "segment_id": 146,
+      "timestamp": "05:23",
+      "start": 244.92,
+      "end": 382.24,
+      "text": "or your combative exam questions are very common. So, I will talk about the next important, intermediate code generator. Then, we have the final code, optimization, simple topic, machine-dependent coding, machine-independent coding, how we can optimize the code, code optimization means, reducing time complexity, reducing space complexity, instructions can be written in this way, so that my time is less or less. That is your code optimization. So, this is also your easy topic, this is also your easy topic, which you can little bit pressure, that is your passing. Because, you need to remember some steps, remember, I am not saying you are craming. Craming, all the points are logical, but the steps are a little bigger. So, there is a point, which I can note, the rest of the topic is very easy. So, this is why, note all the points, and we will discuss all the points. So, here, I will tell you, pre-request, pre-request means, that, before doing anything, what should be done? For example, we are going to shop, and if we are going to shop, then, if we are going to shop, we are going to shop, so, what should be done? So, here, if we are going to shop, we are going to shop, basic knowledge of theory of computation. That is more than sufficient, if it is not sufficient, then, if it is not enough, then, I will tell you, in a little bit of a point, otherwise, the playlist is already there, so, you can shop a little bit, I can read it, what can be done? I will tell you, okay, now, mainly, here, we are going to talk about, finite automata, regular languages, context-free languages, or grammar, so, in between, I will guide you a little bit, the second computer organization, is also a dark architecture, you should have knowledge of everything, what are the instructions, how the instructions are executed, the addressing mode, basic knowledge, you should have knowledge of everything, and not, then, there will be no problem, I will read it in this way, that you will not be able to do any doubt, but, you can read it a little bit, from the beginning, so that, you can understand, the easy, the points, all of them, so, basically, you should note all these points, so, from the next video, we are going to start, phases of the compiler, thank you.",
+      "video_text": "or your combative exam questions are very common. So, I will talk about the next important, intermediate code generator. Then, we have the final code, optimization, simple topic, machine-dependent coding, machine-independent coding, how we can optimize the code, code optimization means, reducing time complexity, reducing space complexity, instructions can be written in this way, so that my time is less or less. That is your code optimization. So, this is also your easy topic, this is also your easy topic, which you can little bit pressure, that is your passing. Because, you need to remember some steps, remember, I am not saying you are craming. Craming, all the points are logical, but the steps are a little bigger. So, there is a point, which I can note, the rest of the topic is very easy. So, this is why, note all the points, and we will discuss all the points. So, here, I will tell you, pre-request, pre-request means, that, before doing anything, what should be done? For example, we are going to shop, and if we are going to shop, then, if we are going to shop, we are going to shop, so, what should be done? So, here, if we are going to shop, we are going to shop, basic knowledge of theory of computation. That is more than sufficient, if it is not sufficient, then, if it is not enough, then, I will tell you, in a little bit of a point, otherwise, the playlist is already there, so, you can shop a little bit, I can read it, what can be done? I will tell you, okay, now, mainly, here, we are going to talk about, finite automata, regular languages, context-free languages, or grammar, so, in between, I will guide you a little bit, the second computer organization, is also a dark architecture, you should have knowledge of everything, what are the instructions, how the instructions are executed, the addressing mode, basic knowledge, you should have knowledge of everything, and not, then, there will be no problem, I will read it in this way, that you will not be able to do any doubt, but, you can read it a little bit, from the beginning, so that, you can understand, the easy, the points, all of them, so, basically, you should note all these points, so, from the next video, we are going to start, phases of the compiler, thank you.",
+      "match": {
+        "type": "unknown",
+        "id": 11,
+        "reason": "Fallback due to Gemini error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+        "confidence": 0.0
+      },
+      "slide_id": 11,
+      "slide_title": "Exam Preparation Strategy",
+      "concept": "unknown",
+      "confidence": 0.0
+    }
+  ],
+  "analytics": {
+    "difficult_segments": [
+      {
+        "segment_id": 146,
+        "timestamp": "05:23",
+        "start": 244.92,
+        "end": 382.24,
+        "text": "or your combative exam questions are very common. So, I will talk about the next important, intermediate code generator. Then, we have the final code, optimization, simple topic, machine-dependent coding, machine-independent coding, how we can optimize the code, code optimization means, reducing time complexity, reducing space complexity, instructions can be written in this way, so that my time is less or less. That is your code optimization. So, this is also your easy topic, this is also your easy topic, which you can little bit pressure, that is your passing. Because, you need to remember some steps, remember, I am not saying you are craming. Craming, all the points are logical, but the steps are a little bigger. So, there is a point, which I can note, the rest of the topic is very easy. So, this is why, note all the points, and we will discuss all the points. So, here, I will tell you, pre-request, pre-request means, that, before doing anything, what should be done? For example, we are going to shop, and if we are going to shop, then, if we are going to shop, we are going to shop, so, what should be done? So, here, if we are going to shop, we are going to shop, basic knowledge of theory of computation. That is more than sufficient, if it is not sufficient, then, if it is not enough, then, I will tell you, in a little bit of a point, otherwise, the playlist is already there, so, you can shop a little bit, I can read it, what can be done? I will tell you, okay, now, mainly, here, we are going to talk about, finite automata, regular languages, context-free languages, or grammar, so, in between, I will guide you a little bit, the second computer organization, is also a dark architecture, you should have knowledge of everything, what are the instructions, how the instructions are executed, the addressing mode, basic knowledge, you should have knowledge of everything, and not, then, there will be no problem, I will read it in this way, that you will not be able to do any doubt, but, you can read it a little bit, from the beginning, so that, you can understand, the easy, the points, all of them, so, basically, you should note all these points, so, from the next video, we are going to start, phases of the compiler, thank you.",
+        "primary_concept": "unknown",
+        "slide_id": 11,
+        "slide_title": "Exam Preparation Strategy",
+        "confusion_score": 7.8,
+        "difficulty_level": "high"
+      },
+      {
+        "segment_id": 50,
+        "timestamp": "02:26",
+        "start": 0.0,
+        "end": 244.92,
+        "text": "Hello students, welcome to GatesMeshers. Today's video is going to start with compiler design. So, since you are preparing for a competitive exam like gate exam, net, net, net, net, any PSU exam in which Slevas's topic is mentioned in this topic. Or you are also preparing for a college or university exam. So, I will tell you about the entire series of compiler design. These are all the points you will be able to help a lot. And guys, I will tell you all the points to note well. I am bringing you a clear and clear video. And I will tell you that the most important points in this video, where students can make this compiler design a little tricky and complex. I have never focused on this much. I used to leave the topic on the topic of the exam, that the topic of the rest is coming. But, you will not be able to make this. But, all the points are important. Each and every subject is very important. And this is also very important in real life. You use all the programming languages. We are using all the high level languages. But, how the computer is evaluating it? How the computer is converting it to low level, machine level, and the compiler of the compiler. So, here I will tell you, I have never focused on this. But, actually, this is the case, that if we talk about the part, then, what happens when we talk about the part, that normally, it starts to look scary, that what is this? But, as soon as you reach the peak, it will not be able to reach the peak. So, that is the point here. It will start, and it will start, and it will start, it will be very difficult. But, when you reach the peak, then you will find out, that there is nothing, it is very scary in such cases. So, this is the compiler design. I will tell you, in the same way, I am taking clear and crisp videos for you. So, check all the videos carefully. If I tell you, for example, that you can talk about the gate part, then, you can write 4 marks of the important part. So, you can write 2 questions, or you can write 2 questions, or you can write 1 or 2. So, how can you write them? But, you can write 4 papers of 4. If you talk about the net, then, you can say, that you can write 4 marks, and this can be written 4 marks, and you can write it, there is no need for it to be written. Getting the word. So, let's start. The words mentioned in the syllabus, the five topics mentioned here, the phases of the compiler, which we will discuss in the next video, are the five phases of the syllabus. So, the first topic is, we have the physical analysis. The first phase is the physical analysis, which we will talk about tokenization. That is a major point. So, there, there is also a question of number one. It is an easy topic. Next topic, the passing is the most important, guys. You can say that, I mean, the core of the task, the most important thing of the whole syllabus, the most important thing is the passing. And, we have the passing, top down, bottom, parser, top down, the most important thing is, that is your LL parser. And, if we talk about the bottom up, there, there is SL, LL, LL, there, we will discuss about it. In the semantic analysis, we will talk about the SDD syntax, directory translation language, which basically, we will talk about the semantic, rules according to which we will perform. I will tell you, one of the easiest portions. It is a very easy portion. It is a very easy portion. Then, intermediate code generation, which we will talk about here, we have post-fix code, we have three addresses, DAG, but one of the most important, your three addresses. So, here, there are many times,",
+        "primary_concept": "unknown",
+        "slide_id": 0,
+        "slide_title": "Compiler Design Syllabus Guide",
+        "confusion_score": 7.7,
+        "difficulty_level": "high"
+      }
+    ],
+    "engagement": {
+      "total_pauses": 3,
+      "total_replays": 5,
+      "total_seeks": 2,
+      "avg_speed": 1.0,
+      "engagement_score": 72,
+      "watch_percentage": 88
+    },
+    "topic_stats": [
+      {
+        "concept": "unknown",
+        "segments": 2,
+        "avg_confusion": 7.8,
+        "difficulty_level": "high"
+      }
+    ],
+    "insights": [
+      "\ud83d\udd34 Most challenging segment: 'unknown' at 05:23 with confusion score 7.8",
+      "\ud83d\udcca Moderate engagement. Some sections may need clarification.",
+      "\ud83d\udcd6 Topic with most difficulty: 'unknown' (avg confusion: 7.8)"
+    ],
+    "total_events": 0,
+    "segments_analyzed": 2
+  },
+  "behavior_logs": [],
+  "processing_status": "done",
+  "processing_progress": 100,
+  "processing_error": ""
+}
