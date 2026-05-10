@@ -7,13 +7,18 @@ echo "╔═══════════════════════�
 echo "║   InsightEd — Backend Setup          ║"
 echo "╚══════════════════════════════════════╝"
 
-# Create virtualenv if not exists
-if [ ! -d ".venv" ]; then
+# Use whichever venv directory already exists; create `venv/` if neither does.
+if [ -d "venv" ]; then
+  VENV_DIR="venv"
+elif [ -d ".venv" ]; then
+  VENV_DIR=".venv"
+else
   echo "→ Creating virtual environment..."
-  python3 -m venv .venv
+  python3 -m venv venv
+  VENV_DIR="venv"
 fi
 
-source .venv/bin/activate
+source "$VENV_DIR/bin/activate"
 
 echo "→ Installing Python dependencies..."
 pip install -q --upgrade pip

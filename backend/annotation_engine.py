@@ -7,30 +7,26 @@ Annotation Engine
 
 import re
 from typing import List, Dict, Any, Optional
-from urllib.parse import quote_plus
 import numpy as np
 
 from llm_engine import generate_annotations
+from services.recommendations import gather_resources
+from services.text_processing import join_segments
+from services.topic_extraction import extract_topics
 
 
-def resource_search_links(concept: str) -> List[Dict[str, str]]:
-    """Produce simple YouTube and internet search links for a topic."""
+def resource_search_links(concept: str) -> List[Dict[str, Any]]:
+    """Real-source recommendations (Part 6).
+
+    Aggregates Wikipedia, YouTube, arXiv, GitHub and MDN concurrently and
+    returns ranked `RecommendedResource`-shaped dicts.
+
+    The function name is preserved for backwards compatibility with callers
+    that already imported it.
+    """
     if not concept:
         return []
-
-    query = quote_plus(f"{concept} tutorial")
-    return [
-        {
-            "type": "youtube",
-            "title": f"Watch YouTube tutorials for {concept}",
-            "url": f"https://www.youtube.com/results?search_query={query}",
-        },
-        {
-            "type": "web",
-            "title": f"Search the web for {concept}",
-            "url": f"https://www.google.com/search?q={query}",
-        },
-    ]
+    return gather_resources(concept, limit=12)
 
 
 class AnnotationEngine:
@@ -52,19 +48,32 @@ class AnnotationEngine:
         
         import time
         
+        from services.llm import get_llm
+        llm = get_llm()
+
         for i in range(0, len(transcript), chunk_size):
             chunk = transcript[i:i+chunk_size]
             combined_text = " ".join([s.get("text", "") for s in chunk])
-            
-            print(f"[AnnotationEngine] Annotating chunk {i//chunk_size + 1}/{(len(transcript) + chunk_size - 1)//chunk_size}...")
-            
-            try:
-                # Use Gemini to generate rich annotations
-                concepts = generate_annotations(combined_text)
-                time.sleep(4) # Sleep 4s to stay under 15 RPM limit (60s / 15 = 4s)
-            except Exception as e:
-                print(f"[AnnotationEngine] API limit/error reached: {e}")
-                concepts = [] # Fallback to empty if rate limited
+
+            chunk_num = i // chunk_size + 1
+            total_chunks = (len(transcript) + chunk_size - 1) // chunk_size
+            print(f"[AnnotationEngine] Annotating chunk {chunk_num}/{total_chunks}...")
+
+            # Fail fast if the LLM circuit is open — no point sleeping 4s per chunk
+            # if every call short-circuits.
+            if not llm.is_available():
+                print(f"[AnnotationEngine] LLM unavailable; using empty annotations for remaining chunks.")
+                concepts = []
+            else:
+                try:
+                    concepts = generate_annotations(combined_text)
+                    # Polite pacing only when we actually called the API.
+                    # Skip sleep on cache hits and on the final chunk.
+                    if chunk_num < total_chunks:
+                        time.sleep(2)
+                except Exception as e:
+                    print(f"[AnnotationEngine] API limit/error reached: {e}")
+                    concepts = []
             
             # Ensure concept is an array of dicts with concept, explanation, importance
             formatted_concepts = []
@@ -106,8 +115,11 @@ class AnnotationEngine:
         slides: List[Dict[str, Any]],
         embeddings: Dict[str, Any],
         analytics: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
-        """Return recommended slides/segments for a given concept or timestamp."""
+    ) -> Dict[str, Any]:
+        """Return recommended slides/segments for a given concept or timestamp.
+
+        Shape: {"recommendations": [...], "resources": [...]}
+        """
         results = []
 
         # Get difficult segments from analytics
@@ -178,5 +190,15 @@ class AnnotationEngine:
 
         # Sort by score and deduplicate
         results.sort(key=lambda x: x["score"], reverse=True)
-        resources = resource_search_links(concept)
+
+        # Build a richer query: concept + a sampled snippet of the transcript
+        # to bias topic searches toward the actual lecture context.
+        snippet = join_segments(transcript[:6])[:300]
+        topics = extract_topics(f"{concept}. {snippet}", fallback_keywords=True)
+        if topics:
+            primary = topics[0].get("summary") or topics[0].get("name") or concept
+        else:
+            primary = concept
+        resources = gather_resources(primary, limit=12)
+
         return {"recommendations": results[:8], "resources": resources}

@@ -2,127 +2,170 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --ink-900: #0a0a0f;
-  --ink-800: #12121a;
-  --ink-700: #1a1a26;
-  --ink-600: #252535;
-  --acid: #c8f135;
-  --coral: #ff6b6b;
-  --sky: #4ecdc4;
-  --amber: #ffd166;
-  --text-primary: #f0f0fa;
-  --text-muted: #8888aa;
+/* ── Design tokens ──────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Light surfaces (default) */
+    --surface-0: 248 252 249;   /* page background */
+    --surface-1: 255 255 255;   /* card background */
+    --surface-2: 240 253 244;   /* subtle accent */
+    --surface-3: 220 240 230;
+    --ink-1: 12 22 18;          /* primary text */
+    --ink-2: 64 84 76;          /* secondary text */
+    --ink-3: 122 138 132;       /* muted text */
+    --border: 226 232 230;
+    --border-strong: 209 220 215;
+    color-scheme: light;
+  }
+
+  .dark {
+    --surface-0: 10 20 16;
+    --surface-1: 16 28 22;
+    --surface-2: 22 38 30;
+    --surface-3: 32 50 40;
+    --ink-1: 232 248 240;
+    --ink-2: 178 202 188;
+    --ink-3: 132 158 144;
+    --border: 36 56 46;
+    --border-strong: 56 80 66;
+    color-scheme: dark;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-surface-0 text-ink-1 font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    text-rendering: optimizeLegibility;
+  }
+
+  *::selection {
+    background: rgb(var(--ink-1) / 0.12);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border-strong));
+    border-radius: 6px;
+    border: 2px solid rgb(var(--surface-0));
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--ink-3)); }
 }
 
-* { box-sizing: border-box; }
+/* ── Reusable component classes ──────────────────────────────────────────── */
+@layer components {
+  .glass {
+    @apply backdrop-blur-xl bg-surface-1/70 border border-border/70 shadow-glass;
+  }
 
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  background: var(--ink-900);
-  color: var(--text-primary);
-  font-family: 'DM Sans', sans-serif;
-}
+  .glass-strong {
+    @apply backdrop-blur-2xl bg-surface-1/85 border border-border;
+  }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--ink-800); }
-::-webkit-scrollbar-thumb { background: var(--ink-600); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #444460; }
+  .card {
+    @apply bg-surface-1 border border-border rounded-2xl shadow-soft;
+  }
 
-/* Glassmorphism card */
-.glass {
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-}
+  .card-interactive {
+    @apply card transition-all duration-200 hover:shadow-card hover:-translate-y-0.5 hover:border-border-strong;
+  }
 
-/* Acid glow */
-.glow-acid {
-  box-shadow: 0 0 20px rgba(200, 241, 53, 0.2);
-}
-.glow-coral {
-  box-shadow: 0 0 20px rgba(255, 107, 107, 0.2);
-}
-.glow-sky {
-  box-shadow: 0 0 20px rgba(78, 205, 196, 0.2);
-}
+  .input-base {
+    @apply w-full px-4 py-2.5 rounded-xl bg-surface-1 border border-border text-ink-1 placeholder:text-ink-3
+           focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500
+           transition-all duration-150;
+  }
 
-/* Shimmer skeleton */
-.skeleton {
-  background: linear-gradient(90deg, var(--ink-700) 0%, var(--ink-600) 50%, var(--ink-700) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.8s linear infinite;
-}
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 font-medium rounded-xl
+           transition-all duration-150 select-none whitespace-nowrap
+           disabled:opacity-50 disabled:cursor-not-allowed
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           focus-visible:ring-brand-500 focus-visible:ring-offset-surface-0;
+  }
 
-/* Video timeline marker */
-.marker {
-  position: absolute;
-  top: 0;
-  width: 3px;
-  height: 100%;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-.marker:hover { transform: scaleY(1.3) scaleX(1.5); }
+  .btn-primary {
+    @apply btn-base bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800
+           shadow-soft hover:shadow-glow;
+  }
 
-/* Tag */
-.tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
+  .btn-secondary {
+    @apply btn-base bg-surface-2 text-ink-1 hover:bg-surface-3 border border-border;
+  }
 
-/* Difficulty chips */
-.diff-high { background: rgba(255,107,107,0.15); color: #ff9999; border: 1px solid rgba(255,107,107,0.3); }
-.diff-medium { background: rgba(255,209,102,0.12); color: #ffd166; border: 1px solid rgba(255,209,102,0.3); }
-.diff-low { background: rgba(78,205,196,0.12); color: #4ecdc4; border: 1px solid rgba(78,205,196,0.3); }
+  .btn-ghost {
+    @apply btn-base text-ink-2 hover:text-ink-1 hover:bg-surface-2;
+  }
 
-/* Drop zone */
-.drop-zone {
-  border: 2px dashed rgba(200,241,53,0.3);
-  transition: border-color 0.2s, background 0.2s;
-}
-.drop-zone:hover, .drop-zone.drag-over {
-  border-color: var(--acid);
-  background: rgba(200,241,53,0.04);
-}
+  .btn-danger {
+    @apply btn-base bg-red-500 text-white hover:bg-red-600;
+  }
 
-/* Progress bar */
-.progress-bar {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--ink-600);
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--acid), var(--sky));
-  transition: width 0.4s ease;
-}
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgb(var(--surface-2)) 0%,
+      rgb(var(--surface-3)) 50%,
+      rgb(var(--surface-2)) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded-xl;
+  }
 
-/* Concept badge */
-.concept-badge {
-  background: rgba(200,241,53,0.1);
-  color: var(--acid);
-  border: 1px solid rgba(200,241,53,0.2);
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  /* Subtle gradient text used in heroes */
+  .text-gradient {
+    background: linear-gradient(135deg, #10b981 0%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Animated mesh background for marketing/hero areas */
+  .mesh-bg {
+    background:
+      radial-gradient(at 18% 20%, rgb(16 185 129 / 0.18) 0px, transparent 45%),
+      radial-gradient(at 82% 14%, rgb(245 158 11 / 0.12) 0px, transparent 50%),
+      radial-gradient(at 28% 88%, rgb(34 211 238 / 0.10) 0px, transparent 55%);
+  }
+
+  /* Tag chip */
+  .tag {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[0.7rem] font-medium border border-border bg-surface-2 text-ink-2;
+  }
+
+  /* Concept badge — used inside annotations */
+  .concept-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.7rem] font-semibold uppercase tracking-wide
+           bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/30;
+  }
+
+  /* Difficulty chips */
+  .diff-high { @apply bg-red-500/10 text-red-600 border border-red-500/20 px-2 py-0.5 rounded-full text-xs; }
+  .diff-medium { @apply bg-accent-500/10 text-accent-700 dark:text-accent-300 border border-accent-500/20 px-2 py-0.5 rounded-full text-xs; }
+  .diff-low { @apply bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/20 px-2 py-0.5 rounded-full text-xs; }
+
+  /* Video timeline marker */
+  .marker {
+    position: absolute;
+    top: 0;
+    width: 3px;
+    height: 100%;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .marker:hover { transform: scaleY(1.3) scaleX(1.5); }
 }
 
-/* Relevance dot */
-.dot-high { width: 8px; height: 8px; border-radius: 50%; background: var(--acid); }
-.dot-medium { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
-.dot-low { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
