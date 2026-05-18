@@ -5,6 +5,7 @@ All environment-driven settings live here so the rest of the codebase
 imports from a single source of truth instead of calling os.getenv ad-hoc.
 """
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import List
@@ -39,8 +40,18 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = Field(default=60 * 24 * 7)  # 1 week
 
     # AI
+    # Single-key legacy field — still respected for backward compatibility.
     gemini_api_key: str = Field(default="")
-    gemini_model: str = Field(default="gemini-2.5-flash-lite")
+    # Comma-separated list of keys for automatic rotation. Takes precedence
+    # over ``gemini_api_key`` when populated.
+    gemini_api_keys: str = Field(default="")
+    gemini_model: str = Field(default="gemini-2.5-flash")
+    # Max retries per LLM call across the key pool. With N keys and R retries
+    # we attempt up to min(R, N) distinct keys before giving up.
+    gemini_max_retries: int = Field(default=4)
+    # Seconds a key stays on cooldown after a quota/rate failure before it's
+    # eligible for rotation again.
+    gemini_key_cooldown: int = Field(default=300)
 
     # Recommendations
     youtube_api_key: str = Field(default="")
@@ -63,6 +74,48 @@ class Settings(BaseSettings):
     @property
     def mongodb_enabled(self) -> bool:
         return bool(self.mongodb_uri.strip())
+
+    @property
+    def gemini_keys(self) -> List[str]:
+        """Effective list of Gemini API keys, in priority order.
+
+        Three accepted shapes (merged in this order, duplicates removed):
+
+          1. ``GEMINI_API_KEY_1`` … ``GEMINI_API_KEY_N`` — one key per line.
+             Most readable when you have many keys. Numbering can start at 1
+             and skip gaps; ordering is numeric.
+          2. ``GEMINI_API_KEYS`` — single comma-separated list.
+          3. ``GEMINI_API_KEY``  — legacy single-key field.
+
+        Whitespace-only and obviously-placeholder values are dropped.
+        """
+        seen: set[str] = set()
+        out: List[str] = []
+
+        def _push(raw: str) -> None:
+            v = (raw or "").strip()
+            # Skip empty values and common placeholders so the manager isn't
+            # initialised with "PASTE_KEY_HERE" style strings.
+            if not v or v.lower().startswith(("paste", "your-", "key", "<")):
+                return
+            if v in seen:
+                return
+            seen.add(v)
+            out.append(v)
+
+        # 1. Numbered slots — scan a generous range so users can paste up
+        #    to dozens of keys without changing this code.
+        for i in range(1, 51):
+            _push(os.getenv(f"GEMINI_API_KEY_{i}", ""))
+
+        # 2. CSV form
+        for k in (self.gemini_api_keys or "").split(","):
+            _push(k)
+
+        # 3. Legacy single key
+        _push(self.gemini_api_key)
+
+        return out
 
 
 @lru_cache(maxsize=1)
