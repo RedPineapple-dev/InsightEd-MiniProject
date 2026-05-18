@@ -26,6 +26,13 @@ from document_processor import DocumentProcessor
 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
+# Embedding-shortcut thresholds — if the top candidate is BOTH well above the
+# absolute threshold AND clearly separated from the runner-up, the LLM has
+# nothing useful to add. Skipping it here is the biggest single quota saver.
+EMBEDDING_SHORTCUT_MIN = 0.78
+EMBEDDING_SHORTCUT_GAP = 0.10
+
+
 class EmbeddingEngine:
     """
     Manages embedding generation and similarity computation.
@@ -37,8 +44,15 @@ class EmbeddingEngine:
         self.model = None
 
     def load_model(self) -> "EmbeddingEngine":
-        """Load the embedding model."""
-        self.model = SentenceTransformer(self.model_name)
+        """Load the embedding model.
+
+        We pin ``device='cpu'`` because the default device autodetection in
+        modern torch/sentence-transformers initializes parameters on the
+        ``meta`` device on Apple Silicon, which then fails the subsequent
+        ``.to(device)`` with: "Cannot copy out of meta tensor; no data!".
+        Pinning CPU at construction avoids the meta-tensor path entirely.
+        """
+        self.model = SentenceTransformer(self.model_name, device="cpu")
         return self
 
     def encode(self, texts: List[str]) -> np.ndarray:
@@ -54,6 +68,19 @@ class EmbeddingEngine:
     def cosine_similarity(query: np.ndarray, candidates: np.ndarray) -> np.ndarray:
         """Compute cosine similarity between query and candidates."""
         return cosine_similarity([query], candidates)[0]
+
+
+# Module-level cache so each /process call doesn't reload the model.
+_engine_singleton: "EmbeddingEngine | None" = None
+
+
+def _get_engine() -> "EmbeddingEngine":
+    global _engine_singleton
+    if _engine_singleton is None:
+        eng = EmbeddingEngine()
+        eng.load_model()
+        _engine_singleton = eng
+    return _engine_singleton
 
 
 def get_top_k_matches(
@@ -105,10 +132,10 @@ def link_segments_to_documents(
     if not video_segments or not documents:
         return []
     
-    # Initialize embedding engine
-    print("[AlignmentEngine] Loading embedding model...")
-    engine = EmbeddingEngine()
-    engine.load_model()
+    # Reuse the module-level engine — initial load is expensive and the
+    # meta-tensor bug only triggers on the *second* construction in some
+    # torch builds. One process, one model.
+    engine = _get_engine()
     
     results = []
     
@@ -120,41 +147,60 @@ def link_segments_to_documents(
     chunked_segments = [video_segments[i:i+chunk_size] for i in range(0, len(video_segments), chunk_size)]
     
     import time
+
+    shortcut_count = 0
+    llm_count = 0
     for idx, chunk in enumerate(chunked_segments):
-        print(f"[AlignmentEngine] Processing chunk {idx + 1}/{len(chunked_segments)}")
-        
         segment_text = " ".join([s.get("text", "") for s in chunk])
         if not segment_text:
             continue
-        
+
         # We will map the annotation to the middle segment of the chunk
         mid_idx = len(chunk) // 2
         target_seg = chunk[mid_idx]
         segment_id = target_seg.get("segment_id", target_seg.get("id", idx))
-        
+
         # Retrieve top candidates using embeddings
         candidates = get_top_k_matches(segment_text, documents, engine, doc_embeddings, top_k=3)
-        
-        # Use LLM for final decision
-        if use_llm:
+
+        # ── Embedding-confidence shortcut ────────────────────────────
+        # If embeddings already gave a clear answer, don't burn an LLM
+        # call validating it. This is the single biggest quota saver
+        # because typical lectures match cleanly slide-by-slide.
+        best = candidates[0] if candidates else {"type": "unknown", "id": 0}
+        top_sim = float(best.get("similarity_score", 0.0))
+        runner_sim = float(candidates[1].get("similarity_score", 0.0)) if len(candidates) > 1 else 0.0
+        gap = top_sim - runner_sim
+        can_shortcut = (
+            use_llm
+            and top_sim >= EMBEDDING_SHORTCUT_MIN
+            and gap >= EMBEDDING_SHORTCUT_GAP
+        )
+
+        if can_shortcut:
+            shortcut_count += 1
+            match = {
+                "type": best.get("type", "unknown"),
+                "id": best.get("id", 0),
+                "reason": f"Embedding shortcut (sim={top_sim:.2f}, gap={gap:.2f})",
+                "confidence": round(min(0.99, top_sim), 3),
+            }
+        elif use_llm:
+            llm_count += 1
             try:
                 match = match_segment_to_document(segment_text, candidates)
-                time.sleep(4) # Sleep 4s to avoid 15 RPM rate limit
+                time.sleep(2)  # Pacing between LLM calls only
             except Exception as e:
-                # Fallback to best candidate
-                best = candidates[0] if candidates else {"type": "unknown", "id": 0}
                 match = {
                     "type": best.get("type", "unknown"),
                     "id": best.get("id", 0),
                     "reason": f"LLM unavailable, using best candidate: {str(e)}",
                 }
         else:
-            # Use best candidate from embeddings
-            best = candidates[0] if candidates else {"type": "unknown", "id": 0}
             match = {
                 "type": best.get("type", "unknown"),
                 "id": best.get("id", 0),
-                "reason": f"Best match by similarity score: {best.get('similarity_score', 0):.3f}",
+                "reason": f"Best match by similarity score: {top_sim:.3f}",
             }
         
         target_slide_id = match.get("id", 0)
@@ -177,7 +223,16 @@ def link_segments_to_documents(
             "concept": match.get("type", "Unknown"),
             "confidence": match.get("confidence", 0.0) if use_llm else best.get("similarity_score", 0.0),
         })
-    
+
+    if use_llm:
+        total = shortcut_count + llm_count
+        if total:
+            saved_pct = 100.0 * shortcut_count / total
+            print(
+                f"[AlignmentEngine] chunks={total} embedding_shortcut={shortcut_count} "
+                f"llm_calls={llm_count} saved={saved_pct:.0f}%"
+            )
+
     return results
 
 

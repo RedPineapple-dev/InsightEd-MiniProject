@@ -18,12 +18,13 @@ class EmbeddingEngine:
         self._load_model()
 
     def _load_model(self):
-        # Try Sentence Transformers
+        # Try Sentence Transformers. Pin device=cpu to avoid the meta-tensor
+        # init crash that hits some torch builds on Apple Silicon.
         try:
             from sentence_transformers import SentenceTransformer
-            self.model = SentenceTransformer(self.MODEL_NAME)
+            self.model = SentenceTransformer(self.MODEL_NAME, device="cpu")
             self.mode = "transformer"
-            print(f"[EmbeddingEngine] Loaded: {self.MODEL_NAME}")
+            print(f"[EmbeddingEngine] Loaded: {self.MODEL_NAME} (device=cpu)")
             return
         except Exception as e:
             print(f"[EmbeddingEngine] Sentence Transformers unavailable: {e}")

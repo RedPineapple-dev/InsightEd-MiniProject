@@ -28,6 +28,7 @@ import {
   pipelineApi,
   playbackApi,
   documentApi,
+  generatedFileUrl,
   analyticsApi,
   annotationApi,
 } from '../lib/api'
@@ -68,12 +69,16 @@ export default function WorkspacePage() {
   // ── Local-only state (upload form, transient UI) ─────────────────────────
   const [videoFile, setVideoFile] = useState(null)
   const [docFile, setDocFile] = useState(null)
-  const [docMode, setDocMode] = useState('upload') // upload | generate
+  // Generate is the default: the video alone is enough, no deck required.
+  const [docMode, setDocMode] = useState('generate') // generate | upload
   const [videoUploadProgress, setVideoUploadProgress] = useState(0)
   const [docUploadProgress, setDocUploadProgress] = useState(0)
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(null)
+  // {pdf?: {download_url}, pptx?: ...} — populated after processing.
+  const [generatedDocs, setGeneratedDocs] = useState({})
+  const [generatingFmt, setGeneratingFmt] = useState(null)
 
   const playerRef = useRef(null)
   const lastTimeRef = useRef(0)
@@ -123,11 +128,12 @@ export default function WorkspacePage() {
     let alive = true
 
     const loadResults = async () => {
-      const [annRes, alignRes, slideRes, recRes] = await Promise.allSettled([
+      const [annRes, alignRes, slideRes, recRes, docsRes] = await Promise.allSettled([
         pipelineApi.getAnnotations(),
         pipelineApi.getAlignment(),
         pipelineApi.getSlides(),
         pipelineApi.recommend({}),
+        documentApi.latest(),
       ])
       if (!alive) return
       const store = useSessionStore.getState()
@@ -135,6 +141,7 @@ export default function WorkspacePage() {
       if (alignRes.status === 'fulfilled') store.setAlignment(alignRes.value.alignment || [])
       if (slideRes.status === 'fulfilled') store.setSlides(slideRes.value.slides || [])
       if (recRes.status === 'fulfilled') store.setRecommendations(recRes.value.resources || [])
+      if (docsRes.status === 'fulfilled') setGeneratedDocs(docsRes.value?.files || {})
       try {
         const f = await annotationApi.list(fingerprint || 'session')
         if (alive) store.setFrequentTerms(f?.frequent_terms || [])
@@ -264,6 +271,8 @@ export default function WorkspacePage() {
     setDocFile(null)
     setVideoUploadProgress(0)
     setDocUploadProgress(0)
+    setGeneratedDocs({})
+    setGeneratingFmt(null)
     seekedToSavedRef.current = false
     useSessionStore.getState().clearSession()
     useSessionStore.setState({ restoring: false, mode: MODE_UPLOAD })
@@ -319,14 +328,57 @@ export default function WorkspacePage() {
     useSessionStore.getState().setMode(MODE_WATCH)
   }, [])
 
-  const generateDoc = async (fmt) => {
+  const triggerDownload = useCallback((url, filename) => {
+    if (!url) return
+    const absolute = generatedFileUrl(url)
+    const token = (() => {
+      try { return localStorage.getItem('insighted.token') } catch { return null }
+    })()
+    // /generated/* is served as a static mount with no auth required, so a
+    // plain anchor works. Setting download= forces a save dialog instead of
+    // an in-browser preview (Chrome/Edge respect this for cross-mount URLs).
+    const a = document.createElement('a')
+    a.href = absolute
+    if (filename) a.download = filename
+    a.rel = 'noopener'
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }, [])
+
+  const generateDoc = useCallback(async (fmt, { force = false } = {}) => {
+    setGeneratingFmt(fmt)
     try {
-      await documentApi.generate(fingerprint || 'session', fmt)
-      toast.success(`Generated ${fmt.toUpperCase()}`)
+      // Fast path — if the pipeline already produced this format we have
+      // the URL cached locally; download immediately.
+      const cached = generatedDocs?.[fmt]
+      if (cached?.download_url && !force) {
+        triggerDownload(cached.download_url, cached.filename)
+        return
+      }
+      const res = await documentApi.generate(fingerprint || 'session', fmt, { force })
+      if (!res?.download_url) {
+        toast.error(`${fmt.toUpperCase()} generation returned no URL`)
+        return
+      }
+      const filename = res.download_url.split('/').pop()
+      setGeneratedDocs((prev) => ({
+        ...prev,
+        [fmt]: { download_url: res.download_url, filename, format: fmt },
+      }))
+      triggerDownload(res.download_url, filename)
+      toast.success(
+        res.source === 'cached'
+          ? `${fmt.toUpperCase()} ready`
+          : `Generated ${fmt.toUpperCase()}`
+      )
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Generation failed')
+      toast.error(e?.response?.data?.detail || `${fmt.toUpperCase()} generation failed`)
+    } finally {
+      setGeneratingFmt(null)
     }
-  }
+  }, [fingerprint, generatedDocs, triggerDownload])
 
   // ── Player events → analytics + replay/pause detection ───────────────────
   const onTimeUpdate = useCallback((t) => {
@@ -461,6 +513,8 @@ export default function WorkspacePage() {
             onDurationChange={onDurationChange}
             onJump={(t) => playerRef.current?.seek(t, 'programmatic')}
             generateDoc={generateDoc}
+            generatedDocs={generatedDocs}
+            generatingFmt={generatingFmt}
           />
         ) : (
           <UploadView
@@ -664,8 +718,8 @@ function UploadView({
             action={
               <div className="inline-flex rounded-xl border border-border p-0.5 bg-surface-2">
                 {[
-                  { k: 'upload', label: 'Upload PDF/PPT', Icon: FileText },
                   { k: 'generate', label: 'Generate from video', Icon: Wand2 },
+                  { k: 'upload', label: 'Upload PDF/PPT (optional)', Icon: FileText },
                 ].map(({ k, label, Icon }) => (
                   <button
                     key={k}
@@ -683,11 +737,11 @@ function UploadView({
               </div>
             }
           >
-            <CardTitle>Step 2 · Slides</CardTitle>
+            <CardTitle>Step 2 · Slides (optional)</CardTitle>
             <CardDescription>
               {docMode === 'upload'
-                ? 'Upload the deck or PDF that pairs with the video.'
-                : 'Skip the upload — we will generate slides from the transcript automatically.'}
+                ? 'Upload a deck or PDF only if you want to override the auto-generated slides.'
+                : 'The video is enough — slides, PDF and PPTX are built automatically from the lecture.'}
             </CardDescription>
           </CardHeader>
           <CardBody>
@@ -713,8 +767,9 @@ function UploadView({
               <div className="rounded-2xl border border-dashed border-border p-6 bg-surface-2/40 flex items-start gap-3">
                 <Wand2 className="h-5 w-5 text-accent-600 mt-0.5" />
                 <div className="text-sm text-ink-2">
-                  After processing finishes, you can export an AI-generated PDF or PPTX
-                  derived from the lecture's structure.
+                  Topic-grounded slides, PDF notes and a PPTX are generated automatically
+                  while the lecture processes — no deck upload required. The Export buttons
+                  on the Watch page download those files directly.
                 </div>
               </div>
             )}
@@ -802,7 +857,11 @@ function WatchView({
   onDurationChange,
   onJump,
   generateDoc,
+  generatedDocs = {},
+  generatingFmt = null,
 }) {
+  const pdfReady = !!generatedDocs?.pdf?.download_url
+  const pptxReady = !!generatedDocs?.pptx?.download_url
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -850,11 +909,25 @@ function WatchView({
             </div>
             {activePanel === 'slides' && (
               <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={() => generateDoc('pdf')}>
-                  Export PDF
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => generateDoc('pdf')}
+                  loading={generatingFmt === 'pdf'}
+                  disabled={generatingFmt === 'pdf'}
+                  title={pdfReady ? 'Download the auto-generated PDF' : 'Generate a fresh PDF from this lecture'}
+                >
+                  {pdfReady ? 'Download PDF' : 'Export PDF'}
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => generateDoc('pptx')}>
-                  Export PPTX
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => generateDoc('pptx')}
+                  loading={generatingFmt === 'pptx'}
+                  disabled={generatingFmt === 'pptx'}
+                  title={pptxReady ? 'Download the auto-generated PPTX' : 'Generate a fresh PPTX from this lecture'}
+                >
+                  {pptxReady ? 'Download PPTX' : 'Export PPTX'}
                 </Button>
               </div>
             )}

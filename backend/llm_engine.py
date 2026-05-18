@@ -1,19 +1,18 @@
 """
-LLM Engine Module — public-facing API used by alignment_engine and annotation_engine.
+LLM Engine — public-facing API used by alignment_engine and annotation_engine.
 
-This module is now a thin facade over `services.llm` (Part 8 refactor).
-The original function signatures are preserved so the rest of the codebase
-keeps working unchanged.
-
-Improvements:
-  - retry with exponential backoff on transient errors (rate limits, 5xx)
+Thin facade over `services.llm`. Adds:
+  - retry with exponential backoff on transient errors
   - structured-output validation via Pydantic
-  - guaranteed JSON output via `response_mime_type="application/json"`
+  - JSON-only output via `response_mime_type='application/json'`
   - graceful fallbacks — callers always get *something*
+  - **batched** annotation generation for ~6× fewer API calls
+  - **slimmed** prompts to reduce token usage
 
-Public API (unchanged):
+Public API:
   - match_segment_to_document(segment_text, candidates)
   - generate_annotations(segment_text)
+  - generate_annotations_batch(units)        # NEW
 """
 
 from __future__ import annotations
@@ -28,16 +27,16 @@ from services.llm import LLMError, get_llm
 
 load_dotenv(override=True)
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────
 
 class MatchResult(BaseModel):
-    type: str = Field(description="Must be 'slide' or 'pdf'")
-    id: int = Field(description="The ID of the matched document/slide")
-    reason: str = Field(description="Short explanation of why this is the best match")
-    confidence: float = Field(description="Confidence score between 0.0 and 1.0", ge=0.0, le=1.0)
+    type: str = Field(description="'slide' or 'pdf'")
+    id: int
+    reason: str = ""
+    confidence: float = Field(ge=0.0, le=1.0)
 
     @field_validator("type")
     @classmethod
@@ -49,9 +48,9 @@ class MatchResult(BaseModel):
 
 
 class ConceptAnnotation(BaseModel):
-    concept: str = Field(description="The name of the concept extracted")
-    explanation: str = Field(description="Clear and concise explanation of the concept")
-    importance: str = Field(description="Importance level: high, medium, or low")
+    concept: str
+    explanation: str
+    importance: str = "medium"
 
     @field_validator("importance")
     @classmethod
@@ -64,46 +63,68 @@ class AnnotationResult(BaseModel):
     concepts: List[ConceptAnnotation] = Field(default_factory=list)
 
 
-# ── Prompt builders ───────────────────────────────────────────────────────
+class BatchAnnotationUnit(BaseModel):
+    id: int
+    concepts: List[ConceptAnnotation] = Field(default_factory=list)
+
+
+class BatchAnnotationResult(BaseModel):
+    results: List[BatchAnnotationUnit] = Field(default_factory=list)
+
+
+# ── Prompt builders (slim) ────────────────────────────────────────────────
 
 def build_matching_prompt(segment_text: str, candidates: List[Dict[str, Any]]) -> str:
     lines = [
-        "You are an AI system that links lecture video segments to slides or PDF pages.",
-        "Read the transcript segment, then pick the candidate that best matches.",
-        "Prefer matches where the slide explicitly covers the concepts in the segment.",
+        "Pick the candidate that best matches the transcript segment.",
         "",
-        "Transcript segment:",
-        segment_text.strip(),
+        f"Segment: {segment_text.strip()[:1400]}",
         "",
         "Candidates:",
     ]
-    for idx, cand in enumerate(candidates, start=1):
-        doc_type = cand.get("type", "unknown")
+    for cand in candidates:
+        doc_type = cand.get("type", "?")
         doc_id = cand.get("id", "?")
-        doc_text = (cand.get("text") or "").strip().replace("\n", " ")
-        lines.append(f"{idx}. ({doc_type} {doc_id}): {doc_text[:300]}")
-    lines.extend(
-        [
-            "",
-            "Respond with strict JSON ONLY:",
-            '{"type": "slide|pdf", "id": <int>, "reason": "<short>", "confidence": <0..1>}',
-        ]
-    )
+        doc_text = (cand.get("text") or "").strip().replace("\n", " ")[:240]
+        lines.append(f"- {doc_type}#{doc_id}: {doc_text}")
+    lines.append('JSON only: {"type":"slide|pdf","id":<int>,"reason":"<short>","confidence":<0..1>}')
     return "\n".join(lines)
+
+
+_ANNOTATION_SYSTEM_RULES = (
+    "Extract concepts actually explained in the transcript. "
+    "Use canonical technical forms (LR0, FOLLOW, FIRST, NFA, DFA, CFG, GOTO). "
+    "Max 4 concepts. Skip filler. Don't invent. "
+    "Importance: high|medium|low."
+)
 
 
 def build_annotation_prompt(segment_text: str) -> str:
     return (
-        "You are an educational annotator. Extract the most important concepts "
-        "from the lecture transcript below.\n\n"
-        "For each concept return: concept name, a 1-2 sentence student-friendly "
-        "explanation, and an importance label of high/medium/low.\n\n"
-        "Skip filler ('today we'll cover', 'thanks for watching').\n"
-        "Return at most 4 concepts.\n\n"
-        f"Transcript:\n\"\"\"{segment_text.strip()}\"\"\"\n\n"
-        "Respond with strict JSON ONLY:\n"
-        '{"concepts": [{"concept": "...", "explanation": "...", "importance": "high|medium|low"}]}'
+        f"{_ANNOTATION_SYSTEM_RULES}\n\n"
+        f"Transcript: {segment_text.strip()[:1800]}\n\n"
+        'JSON only: {"concepts":[{"concept":"...","explanation":"...","importance":"high|medium|low"}]}'
     )
+
+
+def build_batch_annotation_prompt(units: List[Dict[str, Any]]) -> str:
+    """Pack N segments into one Gemini call.
+
+    Each unit must have {"id": int, "text": str}. The model returns a JSON
+    array keyed by id so we can de-multiplex on the client.
+    """
+    parts = [
+        _ANNOTATION_SYSTEM_RULES,
+        "For EACH segment below return its concepts list (empty if filler).",
+        "",
+    ]
+    for u in units:
+        parts.append(f"#{u['id']}: {(u.get('text') or '').strip()[:1100]}")
+    parts.append(
+        '\nJSON only: {"results":[{"id":<int>,"concepts":'
+        '[{"concept":"...","explanation":"...","importance":"high|medium|low"}]}]}'
+    )
+    return "\n".join(parts)
 
 
 # ── Public API ────────────────────────────────────────────────────────────
@@ -144,12 +165,14 @@ def match_segment_to_document(
     if not result:
         return fallback
 
-    # Cross-check the candidate exists
     valid = any(
         c.get("type") == result.type and c.get("id") == result.id for c in candidates
     )
     if not valid:
-        print(f"[llm_engine] LLM returned non-candidate match {result.type}#{result.id}, falling back")
+        print(
+            f"[llm_engine] LLM returned non-candidate match "
+            f"{result.type}#{result.id}, falling back"
+        )
         return fallback
 
     return result.model_dump()
@@ -159,7 +182,11 @@ def generate_annotations(
     segment_text: str,
     model_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Extract concept annotations from a transcript segment."""
+    """Extract concept annotations from a transcript segment (single call).
+
+    Prefer ``generate_annotations_batch`` when annotating multiple units;
+    this single-call version is kept for backward compatibility.
+    """
     text = (segment_text or "").strip()
     if not text:
         return []
@@ -174,7 +201,7 @@ def generate_annotations(
             prompt,
             AnnotationResult,
             model=model_name or DEFAULT_MODEL,
-            temperature=0.25,
+            temperature=0.2,
             cache_namespace="annotation",
         )
     except LLMError as exc:
@@ -184,6 +211,51 @@ def generate_annotations(
     if not result:
         return []
     return [c.model_dump() for c in result.concepts]
+
+
+def generate_annotations_batch(
+    units: List[Dict[str, Any]],
+    model_name: Optional[str] = None,
+) -> Dict[int, List[Dict[str, Any]]]:
+    """Batched annotation generation.
+
+    Args:
+        units: list of {"id": int, "text": str}. Group of 5–8 is ideal.
+
+    Returns:
+        dict mapping id -> list of concept dicts. Missing/failed ids map to [].
+    """
+    if not units:
+        return {}
+
+    ids = [int(u["id"]) for u in units]
+    empty = {i: [] for i in ids}
+
+    llm = get_llm()
+    if not llm.is_available():
+        return empty
+
+    prompt = build_batch_annotation_prompt(units)
+    try:
+        result = llm.generate_json(
+            prompt,
+            BatchAnnotationResult,
+            model=model_name or DEFAULT_MODEL,
+            temperature=0.2,
+            cache_namespace="annotation_batch",
+        )
+    except LLMError as exc:
+        print(f"[llm_engine] batch annotation failed ({len(units)} units): {exc}")
+        return empty
+
+    if not result:
+        return empty
+
+    out: Dict[int, List[Dict[str, Any]]] = {i: [] for i in ids}
+    for r in result.results:
+        if r.id in out:
+            out[r.id] = [c.model_dump() for c in r.concepts]
+    return out
 
 
 # Backwards-compat: some legacy callers may import these directly.

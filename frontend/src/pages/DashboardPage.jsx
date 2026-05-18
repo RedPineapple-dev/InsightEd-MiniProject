@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -32,6 +32,8 @@ export default function DashboardPage() {
   const [status, setStatus] = useState(null)
   const [recent, setRecent] = useState([])
   const [recentLoading, setRecentLoading] = useState(true)
+  const heroRef = useRef(null)
+  const [mouse, setMouse] = useState({ x: 50, y: 30, on: false })
 
   useEffect(() => {
     pipelineApi.getStatus().then(setStatus).catch(() => setStatus(null))
@@ -41,6 +43,17 @@ export default function DashboardPage() {
       .catch(() => setRecent([]))
       .finally(() => setRecentLoading(false))
   }, [])
+
+  const handleHeroMouseMove = (e) => {
+    const el = heroRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setMouse({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+      on: true,
+    })
+  }
 
   const greeting = (() => {
     const h = new Date().getHours()
@@ -55,11 +68,66 @@ export default function DashboardPage() {
       <div className="space-y-8">
         {/* Hero */}
         <motion.section
-          initial={{ opacity: 0, y: 8 }}
+          ref={heroRef}
+          onMouseMove={handleHeroMouseMove}
+          onMouseLeave={() => setMouse((m) => ({ ...m, on: false }))}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-3xl border border-border bg-surface-1 p-8 lg:p-10 mesh-bg"
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="relative overflow-hidden rounded-3xl border border-border bg-surface-1 p-8 lg:p-12 min-h-[260px] flex items-center mesh-bg"
         >
-          <div className="relative z-10 max-w-2xl">
+          {/* Floating gradient orbs */}
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full bg-brand-500/25 blur-3xl"
+            animate={{ x: [0, 32, -10, 0], y: [0, 24, -8, 0] }}
+            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-28 -right-20 h-[22rem] w-[22rem] rounded-full bg-accent-500/15 blur-3xl"
+            animate={{ x: [0, -36, 12, 0], y: [0, -28, 14, 0] }}
+            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute top-1/3 right-1/3 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl"
+            animate={{ x: [0, 50, -30, 0], y: [0, -40, 20, 0] }}
+            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+          />
+
+          {/* Animated grid overlay */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-50"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(16,185,129,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.07) 1px, transparent 1px)',
+              backgroundSize: '36px 36px',
+              maskImage:
+                'radial-gradient(ellipse at center, black 25%, transparent 75%)',
+              WebkitMaskImage:
+                'radial-gradient(ellipse at center, black 25%, transparent 75%)',
+            }}
+          />
+
+          {/* Mouse-follow glow */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 transition-opacity duration-500"
+            style={{
+              opacity: mouse.on ? 1 : 0,
+              background: `radial-gradient(520px circle at ${mouse.x}% ${mouse.y}%, rgba(16,185,129,0.18), rgba(16,185,129,0.05) 30%, transparent 60%)`,
+            }}
+          />
+
+          {/* Content */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 max-w-2xl"
+          >
             <Badge tone="brand" className="mb-3">
               <Sparkles className="h-3 w-3" /> AI-powered learning
             </Badge>
@@ -71,18 +139,7 @@ export default function DashboardPage() {
               Upload a lecture or pick up where you left off. InsightEd will transcribe, link slides,
               and surface concepts as you watch.
             </p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Button onClick={() => navigate('/workspace?new=1')} rightIcon={<ArrowRight />} size="lg">
-                Upload new video
-              </Button>
-              <Button variant="secondary" onClick={() => navigate('/workspace')} size="lg">
-                Continue learning
-              </Button>
-              <Button variant="ghost" onClick={() => navigate('/analytics')} size="lg">
-                Analytics
-              </Button>
-            </div>
-          </div>
+          </motion.div>
         </motion.section>
 
         {/* Stats */}
@@ -164,9 +221,11 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="mt-3 h-1.5 bg-surface-3 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-brand-500 to-accent-500"
-                        style={{ width: `${pct}%` }}
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-brand-500 via-emerald-400 to-lime-300 animate-gradient-pan"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
                       />
                     </div>
                   </button>

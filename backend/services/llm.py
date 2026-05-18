@@ -165,6 +165,25 @@ class LLMClient:
             "metrics": dict(self.metrics),
         }
 
+    def log_summary(self, prefix: str = "[LLM]") -> None:
+        """Single-line dump of cumulative LLM activity.
+
+        Call this at the end of a pipeline stage or run so quota usage is
+        explainable from stdout alone. Counters are cumulative since the
+        process started — diff them yourself if you want per-stage deltas.
+        """
+        m = self.metrics
+        hit_rate = (
+            m["cache_hits"] / m["calls"] if m["calls"] else 0.0
+        )
+        print(
+            f"{prefix} model={self.default_model} "
+            f"calls={m['calls']} ok={m['successes']} fail={m['failures']} "
+            f"cache_hits={m['cache_hits']} ({hit_rate * 100:.0f}%) "
+            f"short_circuits={m['circuit_short_circuits']} "
+            f"breaker_open={self._breaker.is_open()}"
+        )
+
     # ── Core call with retry + fallback chain ──────────────────────────────
     def generate(
         self,

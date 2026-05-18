@@ -147,11 +147,30 @@ export const llmApi = {
   status: () => api.get('/llm/status').then((r) => r.data),
 }
 
-// ── Generated documents (Part 5) ──────────────────────────────────────────
+// ── Generated documents (auto + on-demand) ────────────────────────────────
 export const documentApi = {
-  generate: (videoId, format = 'pdf') =>
-    api.post('/documents/generate', { video_id: videoId, format }).then((r) => r.data),
-  list: (videoId) => api.get('/documents', { params: { video_id: videoId } }).then((r) => r.data),
+  // ``force`` re-runs LLM generation even if the pipeline already produced
+  // this format. Without it the backend returns the cached file URL.
+  generate: (videoId, format = 'pdf', { force = false, title } = {}) =>
+    api
+      .post('/documents/generate', {
+        video_id: videoId,
+        format,
+        force,
+        ...(title ? { title } : {}),
+      })
+      .then((r) => r.data),
+  latest: () => api.get('/documents/latest').then((r) => r.data),
+  list: (videoId) =>
+    api.get('/documents', { params: { video_id: videoId } }).then((r) => r.data),
+}
+
+// Absolute URL helper for the /generated/* static mount.
+export function generatedFileUrl(url) {
+  if (!url) return ''
+  if (/^https?:/i.test(url)) return url
+  const base = (api.defaults.baseURL || '').replace(/\/$/, '')
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`
 }
 
 export default api

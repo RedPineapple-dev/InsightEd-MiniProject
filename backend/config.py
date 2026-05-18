@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # AI
     gemini_api_key: str = Field(default="")
-    gemini_model: str = Field(default="gemini-2.5-flash")
+    gemini_model: str = Field(default="gemini-2.5-flash-lite")
 
     # Recommendations
     youtube_api_key: str = Field(default="")

@@ -27,6 +27,7 @@ choco install ffmpeg
 # Using winget
 winget install Ollama.Ollama
 
+
 # Or download from https://ollama.com
 ```
 

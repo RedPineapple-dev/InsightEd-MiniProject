@@ -89,6 +89,13 @@ def _new_session() -> Dict[str, Any]:
         "alignment": [],
         "analytics": {},
         "behavior_logs": [],
+        # Multi-stage generation pipeline state
+        "topic_chunks": [],
+        "frame_ocr": [],
+        "structured_notes": [],
+        "generated_documents": {},   # {pdf: {download_url, outline}, pptx: {...}}
+        "documents_status": "idle",  # idle | generating | ready | error
+        "documents_error": "",
         "processing_status": "idle",
         "processing_progress": 0,
         "processing_error": "",
@@ -98,11 +105,37 @@ def _new_session() -> Dict[str, Any]:
 _user_sessions: Dict[str, Dict[str, Any]] = {}
 
 
+def _rehydrate_session(user_id: str) -> Optional[Dict[str, Any]]:
+    """Try to restore a previously-saved session for this user.
+
+    Order: Mongo pipeline_runs (latest fingerprint) → on-disk JSON snapshot.
+    Returns None if nothing is recoverable. Idempotency is the goal: refresh
+    / re-login should NOT trigger pipeline reruns.
+    """
+    try:
+        from services.pipeline_cache import load_from_disk
+        snap = load_from_disk(SESSIONS_DIR, user_id)
+        if snap and isinstance(snap, dict):
+            base = _new_session()
+            base.update(snap)
+            # Embeddings aren't persisted (too large); they get recomputed
+            # lazily by /search and /recommend.
+            base["embeddings"] = {}
+            return base
+    except Exception as exc:
+        print(f"[Pipeline] rehydrate failed for {user_id}: {exc}")
+    return None
+
+
 def get_user_session(user_id: str) -> Dict[str, Any]:
-    """Return (creating if necessary) the in-memory session for this user."""
+    """Return (creating if necessary) the in-memory session for this user.
+
+    On first access in a new process we attempt to rehydrate from disk so a
+    refresh or re-login doesn't lose the previous pipeline outputs.
+    """
     s = _user_sessions.get(user_id)
     if s is None:
-        s = _new_session()
+        s = _rehydrate_session(user_id) or _new_session()
         _user_sessions[user_id] = s
     return s
 
@@ -114,13 +147,26 @@ def _user_upload_dir(user_id: str) -> Path:
 
 
 def _save_session(user_id: str) -> None:
+    """Persist this user's session to disk and (when available) Mongo.
+
+    Two stores on purpose: disk JSON keeps single-machine dev refresh-immune,
+    Mongo enables multi-instance and survives container restarts.
+    """
     try:
         session = _user_sessions.get(user_id) or {}
         out = {k: v for k, v in session.items() if k != "embeddings"}
         with open(SESSIONS_DIR / f"{user_id}.json", "w") as f:
             json.dump(out, f, indent=2)
     except Exception as e:
-        print(f"[Pipeline] Could not save session: {e}")
+        print(f"[Pipeline] Could not save session to disk: {e}")
+
+    fingerprint = (session or {}).get("fingerprint")
+    if fingerprint:
+        try:
+            from services.pipeline_cache import save_run_sync
+            save_run_sync(user_id, fingerprint, session)
+        except Exception as e:
+            print(f"[Pipeline] Could not save session to Mongo: {e}")
 
 
 class BehaviorEvent(BaseModel):
@@ -196,77 +242,201 @@ def _update(user_id: str, status=None, progress=None):
         session["processing_progress"] = progress
 
 async def run_pipeline(user_id: str):
+    """End-to-end pipeline.
+
+    Stages (video is the only required input — slides/PDF/PPT are derived
+    from the video itself):
+
+        1. Transcript (Whisper)
+        2. Frame OCR     (optional, gracefully degrades)
+        3. Embeddings
+        4. Topic segmentation (semantic chunks)
+        5. Structured notes   (per chunk, grounded)
+        6. Annotations        (per chunk, semantic-deduped)
+        7. Slides             (from uploaded doc OR auto-built from chunks)
+        8. Alignment          (transcript -> slides)
+        9. Analytics
+       10. Auto-generated PDF + PPTX (from structured notes)
+    """
     session = get_user_session(user_id)
     try:
         _update(user_id, "processing", 5)
         loop = asyncio.get_event_loop()
 
-        # Step 1: Video
+        # ── Step 0: Check Mongo for a cached run ────────────────────
+        # If we processed this same file before (same fingerprint) we can
+        # restore the outputs directly and skip the whole pipeline.
+        fingerprint = session.get("fingerprint")
+        if fingerprint:
+            try:
+                from services.pipeline_cache import load_run_sync
+                snap = load_run_sync(user_id, fingerprint)
+            except Exception as exc:
+                snap = None
+                print(f"[Pipeline:{user_id}] cache lookup failed: {exc}")
+            if snap and snap.get("processing_status") == "done":
+                preserve = {"video_path", "document_path", "fingerprint"}
+                for k, v in snap.items():
+                    if k in preserve:
+                        continue
+                    session[k] = v
+                session["embeddings"] = {}
+                _update(user_id, "done", 100)
+                print(f"[Pipeline:{user_id}] ✓ Restored cached run (fingerprint={fingerprint[:12]})")
+                return
+
+        # ── Step 1: Video transcript ────────────────────────────────
         if session["video_path"]:
-            _update(user_id, progress=10)
-            print(f"[Pipeline:{user_id}] Step 1: Video processing")
+            _update(user_id, progress=8)
+            print(f"[Pipeline:{user_id}] Step 1: Video transcript")
             vp = get_video_processor()
             transcript = await loop.run_in_executor(None, vp.process, session["video_path"])
             session["transcript"] = transcript or []
             print(f"[Pipeline:{user_id}] Transcript: {len(session['transcript'])} segments")
-            _update(user_id, progress=35)
+            _update(user_id, progress=25)
 
-        # Step 2: Document
+        # ── Step 2: Frame OCR (optional) ────────────────────────────
+        if session["video_path"]:
+            print(f"[Pipeline:{user_id}] Step 2: Frame OCR (optional)")
+            try:
+                from services.frame_ocr import extract_frame_ocr
+                ocr = await loop.run_in_executor(
+                    None, extract_frame_ocr, session["video_path"]
+                )
+                session["frame_ocr"] = ocr or []
+                print(f"[Pipeline:{user_id}] Frame OCR rows: {len(session['frame_ocr'])}")
+            except Exception as exc:
+                print(f"[Pipeline:{user_id}] OCR skipped: {exc}")
+                session["frame_ocr"] = []
+        _update(user_id, progress=35)
+
+        # ── Step 3: Optional uploaded slides (if user provided them) ─
         if session["document_path"]:
-            _update(user_id, progress=40)
-            print(f"[Pipeline:{user_id}] Step 2: Document processing")
+            print(f"[Pipeline:{user_id}] Step 3a: User-provided slides")
             dp = get_doc_processor()
             slides = await loop.run_in_executor(None, dp.process, session["document_path"])
             session["slides"] = slides or []
-            print(f"[Pipeline:{user_id}] Slides: {len(session['slides'])}")
-            _update(user_id, progress=55)
+            print(f"[Pipeline:{user_id}] Slides from upload: {len(session['slides'])}")
 
-        # If no real content, use mocks (instance methods → use the singletons)
+        # If no real transcript, use the mock so downstream stages don't crash.
         if not session["transcript"]:
             session["transcript"] = get_video_processor()._mock_transcript("")
-        if not session["slides"]:
-            session["slides"] = get_doc_processor()._mock_slides()
+        _update(user_id, progress=42)
 
-        # Step 3: Embeddings
-        _update(user_id, progress=60)
-        print(f"[Pipeline:{user_id}] Step 3: Embeddings")
+        # ── Step 4: Embeddings ──────────────────────────────────────
+        print(f"[Pipeline:{user_id}] Step 4: Embeddings")
         ee = get_embed_engine()
         embeddings = await loop.run_in_executor(
             None, ee.compute_all, session["transcript"], session["slides"]
         )
         session["embeddings"] = embeddings
-        _update(user_id, progress=72)
+        _update(user_id, progress=50)
 
-        # Step 4: Annotations
-        print(f"[Pipeline:{user_id}] Step 4: Annotations")
+        # ── Step 5: Topic segmentation ──────────────────────────────
+        print(f"[Pipeline:{user_id}] Step 5: Topic segmentation")
+        from services.topic_segmentation import segment_transcript
+        chunks = await loop.run_in_executor(
+            None,
+            lambda: segment_transcript(
+                session["transcript"],
+                encode_fn=lambda texts: ee.encode(list(texts)),
+                ocr_records=session.get("frame_ocr") or [],
+            ),
+        )
+        session["topic_chunks"] = chunks
+        print(f"[Pipeline:{user_id}] Topic chunks: {len(chunks)}")
+        _update(user_id, progress=60)
+
+        # ── Step 6: Structured notes ────────────────────────────────
+        print(f"[Pipeline:{user_id}] Step 6: Structured notes")
+        from services.structured_notes import generate_notes
+        notes = await loop.run_in_executor(None, generate_notes, chunks)
+        session["structured_notes"] = notes
+        _update(user_id, progress=70)
+
+        # ── Step 7: Annotations (chunk-aware) ───────────────────────
+        print(f"[Pipeline:{user_id}] Step 7: Annotations")
         ae = get_annotation_engine()
         annotations = await loop.run_in_executor(
-            None, ae.annotate_transcript, session["transcript"], embeddings
+            None,
+            lambda: ae.annotate_transcript(
+                session["transcript"], embeddings, chunks=chunks
+            ),
         )
         session["annotations"] = annotations or []
-        _update(user_id, progress=82)
+        _update(user_id, progress=78)
 
-        # Step 5: Alignment (Hybrid Embedding + LLM)
-        print(f"[Pipeline:{user_id}] Step 5: Alignment (hybrid embedding + Gemini LLM)")
+        # ── Step 8: Slides — auto-derive when no upload ─────────────
+        if not session["slides"]:
+            print(f"[Pipeline:{user_id}] Step 8a: Auto-deriving slides from chunks")
+            session["slides"] = _slides_from_chunks(chunks, notes)
+
+        # ── Step 9: Alignment ───────────────────────────────────────
+        print(f"[Pipeline:{user_id}] Step 9: Alignment")
         from alignment_engine import link_segments_to_documents
         alignment = await loop.run_in_executor(
-            None, link_segments_to_documents, session["transcript"], session["slides"], True
+            None,
+            link_segments_to_documents,
+            session["transcript"],
+            session["slides"],
+            True,
         )
-        print(f"[Pipeline:{user_id}] Alignment complete: {len(alignment)} matched segments")
-
         session["alignment"] = alignment or []
-        _update(user_id, progress=92)
+        print(f"[Pipeline:{user_id}] Alignment: {len(alignment)} matched")
+        _update(user_id, progress=87)
 
-        # Step 6: Analytics
-        print(f"[Pipeline:{user_id}] Step 6: Analytics")
+        # ── Step 10: Analytics ──────────────────────────────────────
+        print(f"[Pipeline:{user_id}] Step 10: Analytics")
         an = get_analytics_engine()
         analytics = await loop.run_in_executor(
-            None, an.generate, session["behavior_logs"], session["alignment"], session["transcript"]
+            None,
+            an.generate,
+            session["behavior_logs"],
+            session["alignment"],
+            session["transcript"],
         )
         session["analytics"] = analytics or {}
+        _update(user_id, progress=92)
+
+        # ── Step 11: Auto-generate PDF + PPTX ───────────────────────
+        print(f"[Pipeline:{user_id}] Step 11: Auto-generating PDF + PPTX")
+        session["documents_status"] = "generating"
+        try:
+            from services.slide_generator import generate_documents
+            from services.topic_segmentation import overall_topic_signature
+
+            canon_terms = overall_topic_signature(chunks)
+            title = _derive_lecture_title(notes, canon_terms, session)
+            result = await loop.run_in_executor(
+                None,
+                lambda: generate_documents(
+                    session["transcript"],
+                    title=title,
+                    formats=["pdf", "pptx"],
+                    chunks=chunks,
+                    notes=notes,
+                ),
+            )
+            session["generated_documents"] = _serialize_documents(result, user_id=user_id)
+            session["documents_status"] = "ready"
+            print(
+                f"[Pipeline:{user_id}] Docs ready: "
+                f"{list(session['generated_documents'].get('files', {}).keys())}"
+            )
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            session["documents_status"] = "error"
+            session["documents_error"] = str(exc)
+            print(f"[Pipeline:{user_id}] Doc generation failed: {exc}")
 
         _update(user_id, "done", 100)
         print(f"[Pipeline:{user_id}] ✓ Complete!")
+        try:
+            from services.llm import get_llm
+            get_llm().log_summary(prefix=f"[LLM:{user_id}]")
+        except Exception:
+            pass
         _save_session(user_id)
 
     except Exception as e:
@@ -275,6 +445,98 @@ async def run_pipeline(user_id: str):
         traceback.print_exc()
         session["processing_status"] = "error"
         session["processing_error"] = str(e)
+
+
+# ── Pipeline helpers ─────────────────────────────────────────────────────
+
+
+def _slides_from_chunks(
+    chunks: list, notes: list
+) -> list:
+    """When the user didn't upload a deck, build a slide list directly from
+    topic chunks so alignment + the SlideViewer still have something to
+    show. The slides mirror the structured-notes content so the right-hand
+    annotation panel and the rendered PDF/PPTX stay in sync.
+    """
+    by_id = {n.get("chunk_id"): n for n in notes if n.get("chunk_id") is not None}
+    slides: list = []
+    for i, c in enumerate(chunks):
+        n = by_id.get(c.get("chunk_id"))
+        title = (n.get("topic") if n else None) or c.get("title_hint") or f"Topic {i + 1}"
+        bullets: list[str] = []
+        if n:
+            bullets.extend((n.get("important_points") or [])[:3])
+            for d in (n.get("definitions") or [])[:1]:
+                if isinstance(d, dict) and d.get("term") and d.get("definition"):
+                    bullets.append(f"{d['term']}: {d['definition']}")
+            bullets.extend((n.get("examples") or [])[:1])
+        if not bullets:
+            bullets = [(c.get("text") or "")[:240]]
+        text = title + ". " + ". ".join(bullets)
+        slides.append(
+            {
+                "id": i,
+                "slide_number": i + 1,
+                "title": str(title)[:120],
+                "bullets": [str(b)[:200] for b in bullets if b],
+                "text": text,
+                "sections": [text],
+                "auto_generated": True,
+                "chunk_id": c.get("chunk_id"),
+                "start": c.get("start"),
+                "end": c.get("end"),
+            }
+        )
+    return slides
+
+
+def _derive_lecture_title(notes: list, canon_terms: list, session: dict) -> str:
+    """Pick a sensible lecture title.
+
+    Priority:
+      1. The topic of the highest-confidence note.
+      2. The dominant canonical term (e.g. "SLR(1) Parsing").
+      3. The uploaded video filename, stripped of extension.
+    """
+    best = None
+    best_conf = -1.0
+    for n in notes:
+        c = float(n.get("confidence") or 0.0)
+        if c > best_conf and not n.get("off_topic") and n.get("topic"):
+            best = n
+            best_conf = c
+    if best and best.get("topic"):
+        return str(best["topic"])[:80]
+    if canon_terms:
+        return f"{canon_terms[0]} — Lecture Notes"
+    video_path = session.get("video_path") or ""
+    if video_path:
+        return Path(video_path).stem.replace("_", " ").replace("video ", "").strip()[:80] or "Lecture Notes"
+    return "Lecture Notes"
+
+
+def _serialize_documents(result: dict, *, user_id: str) -> dict:
+    """Convert ``generate_documents`` output into a JSON-safe dict that the
+    frontend can consume directly.
+    """
+    files = result.get("files") or {}
+    serialized_files: dict = {}
+    for fmt, path in files.items():
+        try:
+            file_path = Path(path)
+            serialized_files[fmt] = {
+                "filename": file_path.name,
+                "download_url": f"/generated/{file_path.name}",
+                "format": fmt,
+            }
+        except Exception:
+            continue
+    return {
+        "files": serialized_files,
+        "outline": result.get("outline") or {},
+        "notes_count": len(result.get("notes") or []),
+        "chunks_count": len(result.get("chunks") or []),
+    }
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -315,6 +577,8 @@ def get_status(user: UserPublic = Depends(get_current_user)):
     # Files are stored under uploads/<user_id>/ so URLs include the user_id.
     video_url = f"/uploads/{user.id}/{video_filename}" if video_filename else None
 
+    generated = session.get("generated_documents") or {}
+    generated_files = generated.get("files") or {}
     return {
         "status": session["processing_status"],
         "progress": session["processing_progress"],
@@ -328,6 +592,14 @@ def get_status(user: UserPublic = Depends(get_current_user)):
         "transcript_segments": len(session["transcript"]),
         "slides_count": len(session["slides"]),
         "annotations_count": len(session["annotations"]),
+        "topic_chunks_count": len(session.get("topic_chunks") or []),
+        "notes_count": len(session.get("structured_notes") or []),
+        "documents_status": session.get("documents_status", "idle"),
+        "documents_error": session.get("documents_error", ""),
+        "documents": {
+            "pdf": generated_files.get("pdf"),
+            "pptx": generated_files.get("pptx"),
+        },
         "llm": llm_summary,
     }
 
@@ -370,16 +642,43 @@ async def upload_document(
 @app.post("/process")
 async def process(
     background_tasks: BackgroundTasks,
+    force: bool = False,
     user: UserPublic = Depends(get_current_user),
 ):
+    """Kick off the pipeline.
+
+    Idempotent unless ``force=true``. If the session already has completed
+    outputs (e.g. user refreshed the page or logged back in), we return the
+    cached status without spawning a new pipeline run. This is the primary
+    guard against accidental Gemini-quota burn on refresh/relogin.
+    """
     session = get_user_session(user.id)
+
     if session["processing_status"] == "processing":
-        return {"message": "Already processing"}
+        return {
+            "message": "Already processing",
+            "status": "processing",
+            "progress": session.get("processing_progress", 0),
+        }
+
+    has_outputs = bool(
+        session.get("transcript")
+        and (session.get("annotations") or session.get("alignment"))
+    )
+    if not force and session["processing_status"] == "done" and has_outputs:
+        print(f"[Pipeline:{user.id}] /process short-circuited (cached run)")
+        return {
+            "message": "Already complete",
+            "status": "done",
+            "progress": 100,
+            "cached": True,
+        }
+
     session["processing_status"] = "queued"
     session["processing_progress"] = 0
     session["processing_error"] = ""
     background_tasks.add_task(run_pipeline, user.id)
-    return {"message": "Processing started"}
+    return {"message": "Processing started", "status": "queued"}
 
 @app.get("/annotations")
 def get_annotations(user: UserPublic = Depends(get_current_user)):
