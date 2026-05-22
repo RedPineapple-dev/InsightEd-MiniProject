@@ -16,4 +16,15 @@ aiofiles==23.2.1
 python-dotenv==1.0.1
 google-genai>=0.3.0
 pydantic>=2.0.0
+pydantic-settings>=2.1.0
 google-generativeai>=0.3.0
+motor>=3.3.2
+pymongo>=4.6.1
+passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]>=3.3.0
+email-validator>=2.1.0
+reportlab>=4.0.7
+yake>=0.4.8
+keybert>=0.8.3
+arxiv>=2.1.0

@@ -1,199 +1,270 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, AlertTriangle, Zap, Clock, TrendingUp, RefreshCw, ArrowLeft, Activity } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts'
-import { getAnalytics } from '../utils/api'
-import { difficultyColor } from '../utils/format'
+import { motion } from 'framer-motion'
+import {
+  Sparkles,
+  ArrowRight,
+  Clock,
+  PlayCircle,
+  Layers,
+  BarChart3,
+  TrendingUp,
+} from 'lucide-react'
 
-const StatCard = ({ label, value, icon: Icon, color, sub }) => (
-  <div className="rounded-2xl p-5" style={{ background: 'var(--ink-800)', border: '1px solid rgba(255,255,255,0.07)' }}>
-    <div className="flex items-center justify-between mb-3">
-      <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)', letterSpacing: '0.06em' }}>{label}</span>
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}18` }}>
-        <Icon size={15} style={{ color }} />
-      </div>
-    </div>
-    <p className="font-display text-3xl" style={{ color: 'var(--text-primary)' }}>{value}</p>
-    {sub && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-  </div>
-)
+import { AppShell } from '../components/layout/AppShell'
+import { Card, CardBody, CardHeader, CardTitle, CardDescription } from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import { Skeleton } from '../components/ui/Skeleton'
+import { Badge } from '../components/ui/Badge'
+import { useAuth } from '../lib/auth'
+import { playbackApi, pipelineApi } from '../lib/api'
+import { formatRelative, formatTime } from '../lib/utils'
+
+const STATS = [
+  { key: 'transcript_segments', label: 'Transcript segments', icon: PlayCircle },
+  { key: 'slides_count', label: 'Slides parsed', icon: Layers },
+  { key: 'annotations_count', label: 'AI annotations', icon: Sparkles },
+]
 
 export default function DashboardPage() {
+  const { user } = useAuth()
   const navigate = useNavigate()
-  const [analytics, setAnalytics] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState(null)
+  const [recent, setRecent] = useState([])
+  const [recentLoading, setRecentLoading] = useState(true)
+  const heroRef = useRef(null)
+  const [mouse, setMouse] = useState({ x: 50, y: 30, on: false })
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const { data } = await getAnalytics()
-      setAnalytics(data)
-    } catch { }
-    setLoading(false)
+  useEffect(() => {
+    pipelineApi.getStatus().then(setStatus).catch(() => setStatus(null))
+    playbackApi
+      .list()
+      .then((data) => setRecent(data?.items || []))
+      .catch(() => setRecent([]))
+      .finally(() => setRecentLoading(false))
+  }, [])
+
+  const handleHeroMouseMove = (e) => {
+    const el = heroRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setMouse({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+      on: true,
+    })
   }
 
-  useEffect(() => { load() }, [])
-
-  const eng = analytics?.engagement || {}
-  const difficult = analytics?.difficult_segments || []
-  const topics = analytics?.topic_stats || []
-  const insights = analytics?.insights || []
-
-  // Bar chart data
-  const barData = difficult.slice(0, 6).map(d => ({
-    name: d.primary_concept?.slice(0, 12) || d.timestamp,
-    score: d.confusion_score,
-    timestamp: d.timestamp,
-  }))
-
-  // Radar data for engagement
-  const radarData = [
-    { subject: 'Engagement', A: eng.engagement_score || 0, fullMark: 100 },
-    { subject: 'Watch %', A: eng.watch_percentage || 0, fullMark: 100 },
-    { subject: 'Focus', A: Math.max(0, 100 - (eng.total_pauses || 0) * 5), fullMark: 100 },
-    { subject: 'Replays', A: Math.min(100, (eng.total_replays || 0) * 10), fullMark: 100 },
-    { subject: 'Completion', A: eng.watch_percentage || 0, fullMark: 100 },
-  ]
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload?.length) {
-      return (
-        <div className="px-3 py-2 rounded-lg text-xs" style={{ background: 'var(--ink-700)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-primary)' }}>
-          <p className="font-medium">{label}</p>
-          <p style={{ color: 'var(--coral)' }}>Confusion: {payload[0].value}</p>
-        </div>
-      )
-    }
-    return null
-  }
+  const greeting = (() => {
+    const h = new Date().getHours()
+    if (h < 5) return 'Up late'
+    if (h < 12) return 'Good morning'
+    if (h < 18) return 'Good afternoon'
+    return 'Good evening'
+  })()
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <button onClick={() => navigate('/learn')} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-          <ArrowLeft size={14} /> Learn
-        </button>
-        <div className="w-px h-4" style={{ background: 'rgba(255,255,255,0.1)' }} />
-        <h1 className="font-display text-2xl" style={{ color: 'var(--text-primary)' }}>Learning Analytics</h1>
-        <button onClick={load} className="ml-auto p-2 rounded-xl hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <RefreshCw size={14} />
-        </button>
-      </div>
+    <AppShell title="Dashboard" subtitle="Your learning at a glance">
+      <div className="space-y-8">
+        {/* Hero */}
+        <motion.section
+          ref={heroRef}
+          onMouseMove={handleHeroMouseMove}
+          onMouseLeave={() => setMouse((m) => ({ ...m, on: false }))}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="relative overflow-hidden rounded-3xl border border-border bg-surface-1 p-8 lg:p-12 min-h-[260px] flex items-center mesh-bg"
+        >
+          {/* Floating gradient orbs */}
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full bg-brand-500/25 blur-3xl"
+            animate={{ x: [0, 32, -10, 0], y: [0, 24, -8, 0] }}
+            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-28 -right-20 h-[22rem] w-[22rem] rounded-full bg-accent-500/15 blur-3xl"
+            animate={{ x: [0, -36, 12, 0], y: [0, -28, 14, 0] }}
+            transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute top-1/3 right-1/3 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl"
+            animate={{ x: [0, 50, -30, 0], y: [0, -40, 20, 0] }}
+            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+          />
 
-      {loading ? (
-        <div className="flex flex-col gap-4">
-          {[1,2,3].map(i => <div key={i} className="skeleton h-32 rounded-2xl" />)}
-        </div>
-      ) : (
-        <>
-          {/* Stat cards */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <StatCard label="ENGAGEMENT SCORE" value={`${eng.engagement_score || 0}`} icon={Zap} color="var(--acid)" sub="out of 100" />
-            <StatCard label="DIFFICULT SEGMENTS" value={difficult.length} icon={AlertTriangle} color="var(--coral)" sub="need review" />
-            <StatCard label="TOTAL REPLAYS" value={eng.total_replays || 0} icon={RefreshCw} color="var(--amber)" sub="replay events" />
-            <StatCard label="AVG PLAYBACK" value={`${eng.avg_speed || 1}×`} icon={Activity} color="var(--sky)" sub="speed" />
-          </div>
+          {/* Animated grid overlay */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-50"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(16,185,129,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.07) 1px, transparent 1px)',
+              backgroundSize: '36px 36px',
+              maskImage:
+                'radial-gradient(ellipse at center, black 25%, transparent 75%)',
+              WebkitMaskImage:
+                'radial-gradient(ellipse at center, black 25%, transparent 75%)',
+            }}
+          />
 
-          {/* Charts row */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {/* Confusion bar chart */}
-            <div className="rounded-2xl p-5" style={{ background: 'var(--ink-800)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <p className="text-xs font-semibold mb-4" style={{ color: 'var(--text-muted)' }}>CONFUSION BY SEGMENT</p>
-              {barData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={barData} barSize={24}>
-                    <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis hide />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="score" fill="var(--coral)" radius={[4,4,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-48 flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
-                  <p className="text-sm">No confusion data yet — watch video and interact</p>
-                </div>
-              )}
-            </div>
+          {/* Mouse-follow glow */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 transition-opacity duration-500"
+            style={{
+              opacity: mouse.on ? 1 : 0,
+              background: `radial-gradient(520px circle at ${mouse.x}% ${mouse.y}%, rgba(16,185,129,0.18), rgba(16,185,129,0.05) 30%, transparent 60%)`,
+            }}
+          />
 
-            {/* Radar engagement */}
-            <div className="rounded-2xl p-5" style={{ background: 'var(--ink-800)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <p className="text-xs font-semibold mb-4" style={{ color: 'var(--text-muted)' }}>ENGAGEMENT OVERVIEW</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <RadarChart data={radarData}>
-                  <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                  <PolarRadiusAxis angle={30} domain={[0,100]} tick={{ fill: 'var(--text-muted)', fontSize: 8 }} />
-                  <Radar dataKey="A" stroke="var(--acid)" fill="var(--acid)" fillOpacity={0.15} strokeWidth={2} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          {/* Content */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 max-w-2xl"
+          >
+            <Badge tone="brand" className="mb-3">
+              <Sparkles className="h-3 w-3" /> AI-powered learning
+            </Badge>
+            <h1 className="font-display text-3xl lg:text-4xl font-bold leading-tight">
+              {greeting}, {user?.name?.split(' ')[0] || 'there'}.{' '}
+              <span className="text-gradient">Let's learn something new.</span>
+            </h1>
+            <p className="text-ink-2 mt-3 max-w-xl">
+              Upload a lecture or pick up where you left off. InsightEd will transcribe, link slides,
+              and surface concepts as you watch.
+            </p>
+          </motion.div>
+        </motion.section>
 
-          {/* Difficult segments table */}
-          <div className="rounded-2xl overflow-hidden mb-6" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="px-5 py-3" style={{ background: 'var(--ink-800)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>DIFFICULT SEGMENTS</p>
-            </div>
-            {difficult.length === 0 ? (
-              <div className="px-5 py-8 text-center" style={{ background: 'var(--ink-800)', color: 'var(--text-muted)' }}>
-                <p className="text-sm">Watch the video and interact to generate confusion data</p>
-              </div>
-            ) : difficult.map((d, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4 px-5 py-4 border-b"
-                style={{ background: i % 2 === 0 ? 'var(--ink-800)' : 'rgba(255,255,255,0.01)', borderColor: 'rgba(255,255,255,0.04)' }}
-              >
-                <span className="text-xs font-mono w-12 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{d.timestamp}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{d.primary_concept}</p>
-                  <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{d.text?.slice(0, 80)}…</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="w-20 h-1.5 rounded-full" style={{ background: 'var(--ink-600)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, d.confusion_score * 10)}%`, background: difficultyColor(d.difficulty_level) }} />
+        {/* Stats */}
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {STATS.map(({ key, label, icon: Icon }) => (
+            <Card key={key} className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-sm text-ink-3">{label}</div>
+                  <div className="font-display text-3xl font-bold mt-1 tabular-nums">
+                    {status?.[key] ?? 0}
                   </div>
-                  <span className={`tag diff-${d.difficulty_level === 'very high' ? 'high' : d.difficulty_level}`}>{d.difficulty_level}</span>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-300 flex items-center justify-center">
+                  <Icon className="h-5 w-5" />
                 </div>
               </div>
-            ))}
+            </Card>
+          ))}
+        </section>
+
+        {/* Continue Watching */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-ink-2" />
+              <h2 className="font-display text-lg font-semibold">Continue watching</h2>
+            </div>
+            <button
+              onClick={() => navigate('/workspace')}
+              className="text-sm text-brand-600 dark:text-brand-300 hover:underline"
+            >
+              All videos
+            </button>
           </div>
 
-          {/* Topic stats */}
-          {topics.length > 0 && (
-            <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--ink-800)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <p className="text-xs font-semibold mb-4" style={{ color: 'var(--text-muted)' }}>TOPICS BY DIFFICULTY</p>
-              <div className="flex flex-col gap-3">
-                {topics.slice(0, 6).map((t, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-sm w-32 flex-shrink-0 truncate" style={{ color: 'var(--text-primary)' }}>{t.concept}</span>
-                    <div className="flex-1 h-2 rounded-full" style={{ background: 'var(--ink-600)' }}>
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${Math.min(100, t.avg_confusion * 15)}%`, background: t.avg_confusion > 4 ? 'var(--coral)' : t.avg_confusion > 2 ? 'var(--amber)' : 'var(--acid)' }}
+          {recentLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-28" />
+              ))}
+            </div>
+          ) : recent.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>No videos yet</CardTitle>
+                <CardDescription>
+                  Upload your first lecture in the workspace to start your learning history.
+                </CardDescription>
+              </CardHeader>
+              <CardBody>
+                <Button onClick={() => navigate('/workspace')} rightIcon={<ArrowRight />}>
+                  Upload a video
+                </Button>
+              </CardBody>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {recent.map((it) => {
+                const pct =
+                  it.duration_seconds && it.last_position_seconds
+                    ? Math.min(100, (it.last_position_seconds / it.duration_seconds) * 100)
+                    : 0
+                return (
+                  <button
+                    key={it._id || it.fingerprint}
+                    onClick={() => navigate(`/workspace?fp=${it.fingerprint}`)}
+                    className="card-interactive text-left p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center text-white">
+                        <PlayCircle className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold truncate">{it.filename || 'Untitled'}</div>
+                        <div className="text-xs text-ink-3">
+                          {formatTime(it.last_position_seconds)} · {formatRelative(it.updated_at)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 h-1.5 bg-surface-3 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-gradient-to-r from-brand-500 via-emerald-400 to-lime-300 animate-gradient-pan"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
                       />
                     </div>
-                    <span className="text-xs font-mono w-8 text-right flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{t.avg_confusion}</span>
-                  </div>
-                ))}
-              </div>
+                  </button>
+                )
+              })}
             </div>
           )}
+        </section>
 
-          {/* AI insights */}
-          {insights.length > 0 && (
-            <div className="rounded-2xl p-5" style={{ background: 'rgba(200,241,53,0.04)', border: '1px solid rgba(200,241,53,0.15)' }}>
-              <p className="text-xs font-semibold mb-3" style={{ color: 'var(--acid)' }}>✦ AI LEARNING INSIGHTS</p>
-              <div className="flex flex-col gap-2">
-                {insights.map((ins, i) => (
-                  <p key={i} className="text-sm" style={{ color: 'var(--text-primary)', lineHeight: 1.7 }}>{ins}</p>
-                ))}
+        {/* Quick links */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card interactive className="p-6 cursor-pointer" onClick={() => navigate('/analytics')}>
+            <div className="flex items-start gap-4">
+              <div className="h-11 w-11 rounded-xl bg-accent-500/10 text-accent-600 flex items-center justify-center">
+                <BarChart3 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold">Interaction analytics</h3>
+                <p className="text-sm text-ink-3 mt-1">
+                  See which segments confuse learners — replays, pauses, and per-student difficulty.
+                </p>
               </div>
             </div>
-          )}
-        </>
-      )}
-    </div>
+          </Card>
+          <Card interactive className="p-6 cursor-pointer" onClick={() => navigate('/workspace')}>
+            <div className="flex items-start gap-4">
+              <div className="h-11 w-11 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-300 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold">Improve a lecture</h3>
+                <p className="text-sm text-ink-3 mt-1">
+                  Generate slides automatically from a video, fix slide alignment, or refresh annotations.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </section>
+      </div>
+    </AppShell>
   )
 }

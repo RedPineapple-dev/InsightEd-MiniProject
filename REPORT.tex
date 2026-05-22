@@ -1,0 +1,324 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{InsightEd: An AI-Powered, Multi-User Video Annotation and Adaptive Learning Platform}
+
+\author{\IEEEauthorblockN{Kunal}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
+\textit{[Institution Name]} \\
+parkaviseedfund@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+Online lecture videos are an increasingly dominant medium for higher education, yet their linear, opaque structure makes it difficult for learners to locate concepts, revisit difficult passages, or correlate spoken content with the slides that accompany them. This paper presents \textit{InsightEd}, a full-stack web application that ingests a lecture video together with its slide deck (or, alternatively, generates a deck from the transcript), and produces an interactive learning workspace augmented by automatically generated annotations, slide-to-timestamp alignment, frequent-term extraction, and per-segment engagement analytics. The system combines local automatic speech recognition (OpenAI Whisper), sentence-level semantic embeddings, the Google Gemini large language model (LLM), and lightweight statistical keyword extraction (YAKE), and exposes them through a FastAPI backend, a MongoDB Atlas data layer, and a React + Zustand frontend. We describe the multi-stage pipeline, the per-user session model that guarantees isolation between concurrent learners, the LLM circuit breaker that keeps the application usable under daily quota exhaustion, the client-side state management that preserves an active learning session across navigation, and the evaluation strategy used to verify both end-to-end correctness and security boundaries. The complete system runs on commodity hardware, requires no proprietary infrastructure beyond the LLM API, and is open-sourced under a single repository.
+\end{abstract}
+
+\begin{IEEEkeywords}
+educational technology, video annotation, automatic speech recognition, semantic embeddings, large language models, retrieval-augmented learning, FastAPI, React, Zustand, MongoDB, multi-user isolation, learning analytics
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+The shift toward asynchronous, video-based instruction---accelerated by the COVID-19 pandemic and sustained by the proliferation of MOOCs, recorded university lectures, and online tutoring platforms---has created a paradox. Learners enjoy unprecedented access to expert instruction, but the medium itself remains stubbornly inert. A two-hour compiler design lecture is a single linear stream; the learner cannot quickly locate the segment in which the instructor explains ``left-recursion elimination,'' cannot tell which slide was on screen at minute 47, and cannot mark a passage that confused them for later review without manually pausing and writing down a timestamp.
+
+Several commercial platforms (e.g., Panopto, Kaltura) have begun to offer transcript search and chapter markers, but the underlying metadata is typically authored manually and provided only by institutions that pay for enterprise licensing. For an individual student or a small department, no end-to-end open-source alternative exists that combines: (1)~automatic transcription of the lecture audio; (2)~automatic alignment of slide content to spoken passages; (3)~AI-generated concept annotations that surface key ideas at the timestamp where they are introduced; (4)~engagement analytics that surface which segments learners replay or pause on; and (5)~personalised, session-persistent state, so a student can leave the workspace and return without losing their place.
+
+InsightEd is a research prototype that fills this gap. Its contributions are:
+
+\begin{itemize}
+    \item a six-stage processing pipeline that turns a raw lecture video and its accompanying deck into a fully indexed, searchable, annotated learning workspace within minutes of upload;
+    \item an LLM service abstraction that combines structured-output JSON prompting, exponential-backoff retries, a circuit breaker that distinguishes per-minute from per-day rate limits, and graceful fallbacks to non-LLM heuristics when the model is unavailable;
+    \item a per-user session model on the backend coupled with a user-id-bound persistent store on the frontend, eliminating the cross-user data leakage that is a frequent failure mode of multi-tenant prototypes built on a single shared session;
+    \item a client-side state architecture (Zustand with \texttt{persist} middleware and per-user binding) that preserves the entire active learning session---uploaded video, transcript, annotations, slide alignment, playback position, and analytics buffer---across route navigation without forcing the learner to re-upload or wait for re-processing.
+\end{itemize}
+
+The remainder of this paper is organised as follows. Section~\ref{sec:related} reviews related work in lecture-video understanding, slide-transcript alignment, and learning analytics. Section~\ref{sec:arch} presents the high-level system architecture. Section~\ref{sec:impl} details the implementation of each pipeline stage and supporting service. Section~\ref{sec:isolation} describes the multi-user isolation design. Section~\ref{sec:eval} reports evaluation results and end-to-end smoke tests. Section~\ref{sec:discussion} discusses limitations and threats to validity. Section~\ref{sec:future} outlines future work. Section~\ref{sec:conclusion} concludes.
+
+\section{Related Work}\label{sec:related}
+
+\textbf{Speech recognition for educational video.} OpenAI's Whisper~\cite{whisper} is an encoder--decoder transformer trained on 680{,}000 hours of multilingual and multitask-supervised speech data; it has rapidly become the de facto open-weight ASR baseline for academic prototypes because it runs locally, supports multiple languages without retraining, and produces word- and segment-level timestamps suitable for downstream alignment. We use Whisper as the first stage of the InsightEd pipeline.
+
+\textbf{Slide-to-transcript alignment.} Aligning the visual stream of a lecture (slides) to the audio stream (transcript) has been studied under titles such as ``lecture video chaptering'' and ``presentation linking''~\cite{slidealign1, slidealign2}. Classical approaches use OCR on slide bitmaps and TF-IDF cosine similarity against transcript windows; more recent work employs sentence embeddings to compute semantic similarity, often followed by a Hungarian or Viterbi alignment over the cost matrix. InsightEd adopts a hybrid scheme: a fast embedding-only first pass (sentence-transformers~\cite{sbert}) followed by an optional LLM refinement pass that asks Gemini to validate or revise the proposed alignment when confidence is low.
+
+\textbf{Keyword and concept extraction.} Statistical methods such as YAKE~\cite{yake} score n-grams using term frequency, position, casing, and co-occurrence, and run in milliseconds on moderate-length documents without a trained model. We use YAKE to populate the ``frequent terms'' panel on the annotations sidebar so the learner can filter the AI-generated annotation list by recurring concepts.
+
+\textbf{Learning analytics.} Replay and pause-frequency tracking on educational video has been shown to correlate with the perceived difficulty of segments~\cite{kim2014} and to surface concept boundaries that instructors did not deliberately mark. Our analytics page implements a ten-second-bucket aggregation of replay and pause events, identifies ``difficult segments'' as those touched by two or more learners, and displays both as an interactive timeline.
+
+\textbf{Web stack.} The frontend uses React~18~\cite{react}, React Router 6, Tailwind CSS, Framer Motion for transitions, and Zustand~\cite{zustand} as the global state container. Zustand was selected over Redux Toolkit and React Context because its imperative \texttt{getState()} API permits straightforward interaction from outside React (notably from the authentication provider's lifecycle hooks) while still supporting selective subscriptions for performance. The backend is built on FastAPI~\cite{fastapi} and Motor (the async MongoDB driver)~\cite{motor}, with JWT-based authentication implemented over \texttt{python-jose}.
+
+\section{System Architecture}\label{sec:arch}
+
+InsightEd is structured as a single-page web application backed by a stateless REST API and a document database.
+
+\subsection{Backend Layout}
+
+The backend (\texttt{backend/}) is organised by concern rather than by feature to keep cross-cutting infrastructure (auth, configuration, database, LLM) free of pipeline-specific knowledge:
+
+\begin{itemize}
+    \item \texttt{auth/} --- JWT issuance, password hashing (bcrypt via \texttt{passlib}), and the FastAPI dependency \texttt{get\_current\_user}.
+    \item \texttt{routes/} --- REST routers for analytics events, annotations CRUD, generated documents, LLM status, and playback history.
+    \item \texttt{repositories/} --- thin data-access classes over Motor collections; one repository per logical entity (Users, Videos, Events, Annotations, Playback, GeneratedDocuments, Recommendations).
+    \item \texttt{models/} --- Pydantic v2 schemas that describe both wire and storage shapes.
+    \item \texttt{services/} --- engine-agnostic helpers: the LLM client with retry and circuit-breaker logic, an LLM response cache, slide generation (ReportLab + python-pptx), text processing, and topic extraction (YAKE + KeyBERT~\cite{keybert}).
+    \item \texttt{main.py} --- application entrypoint that wires routers, mounts the static \texttt{/uploads}, \texttt{/generated}, and \texttt{/static} directories, and hosts the per-user pipeline session dictionary.
+\end{itemize}
+
+\subsection{Frontend Layout}
+
+The frontend (\texttt{frontend/src/}) follows a classic React layout:
+
+\begin{itemize}
+    \item \texttt{pages/} --- route-level components: \texttt{DashboardPage}, \texttt{WorkspacePage}, \texttt{AnalyticsPage}, \texttt{SettingsPage}, plus \texttt{auth/LoginPage} and \texttt{auth/RegisterPage}.
+    \item \texttt{components/layout/} --- \texttt{AppShell}, \texttt{Sidebar}, \texttt{Topbar}, \texttt{ThemeToggle}.
+    \item \texttt{components/ui/} --- design-system primitives (Card, Button, Input, Badge, Modal, Skeleton, Avatar).
+    \item \texttt{components/workspace/} --- feature components specific to the workspace (DropZone, VideoPlayer, AnnotationPanel, SlideViewer, Recommendations, ProcessingOverlay).
+    \item \texttt{lib/} --- cross-cutting modules: \texttt{api.js} (Axios client + per-endpoint helpers), \texttt{auth.jsx} (auth context provider), \texttt{sessionStore.js} (Zustand stores + persist middleware), \texttt{fingerprint.js}, \texttt{singleflight.js}, \texttt{theme.jsx}, and utility helpers.
+    \item \texttt{routes/ProtectedRoute.jsx} --- guards authenticated routes.
+\end{itemize}
+
+\subsection{Data Model}
+
+Five collections live in MongoDB Atlas:
+
+\begin{table}[ht]
+\caption{MongoDB collections and their purposes}
+\label{tab:collections}
+\centering
+\begin{tabular}{|l|p{5.2cm}|}
+\hline
+\textbf{Collection} & \textbf{Purpose} \\
+\hline
+\texttt{users} & name, email, bcrypt password hash, role, created/last-login timestamps \\
+\hline
+\texttt{videos} & per-user metadata for each fingerprinted upload \\
+\hline
+\texttt{playback\_history} & continue-watching state (\texttt{fingerprint}, \texttt{last\_position\_seconds}, \texttt{duration\_seconds}, \texttt{completed}, \texttt{watch\_count}) \\
+\hline
+\texttt{analytics\_events} & individual replay/pause events tagged by \texttt{user\_id}, \texttt{student\_name}, \texttt{video\_id}, \texttt{video\_ts}, \texttt{event\_type}, \texttt{wall\_ts} \\
+\hline
+\texttt{annotations} & user-authored notes attached to a (\texttt{user\_id}, \texttt{video\_id}, \texttt{timestamp\_seconds}) triple \\
+\hline
+\end{tabular}
+\end{table}
+
+Per-user pipeline state (transcript, slides, embeddings, alignment, processing status) lives in process memory keyed by \texttt{user\_id}, with a periodic JSON snapshot to \texttt{data/sessions/<user\_id>.json} for post-mortem inspection. Pipeline state is intentionally \textit{not} in MongoDB because the embeddings and the in-memory engine instances are expensive to serialise and would not survive a process restart in any useful form; the durable surface is the document store and the filesystem (\texttt{uploads/<user\_id>/}).
+
+\section{Methodology and Implementation}\label{sec:impl}
+
+\subsection{Stage 1 --- Video Processing}
+
+When the learner uploads a video to \texttt{POST /upload-video}, the file is streamed to \texttt{uploads/<user\_id>/video\_<original\_name>} to prevent cross-user collision. The user's in-memory session records the path and its fingerprint. Triggering \texttt{POST /process} enqueues a FastAPI \texttt{BackgroundTask} that runs the full six-stage pipeline; polling \texttt{GET /status} returns the current progress so the frontend can render a progress overlay without WebSockets.
+
+Whisper~\cite{whisper} runs locally on the audio extracted from the container by MoviePy. We use the \texttt{base} or \texttt{small} model (configurable) to balance latency against accuracy on lecture-style speech. The output is a list of \{\texttt{start}, \texttt{end}, \texttt{text}\} segments at sub-second resolution.
+
+\subsection{Stage 2 --- Document Parsing}
+
+The slide deck (PDF or PPTX) is processed by either pdfplumber/PyMuPDF or python-pptx, depending on the file type. Each slide is reduced to a plain-text string concatenating its title, body, and any extracted figure captions. A learner who lacks slides can elect ``generate from transcript'' mode, in which a heuristic outline is derived from the transcript and rendered to PDF via ReportLab and to PPTX via python-pptx for download.
+
+\subsection{Stage 3 --- Embedding}
+
+Sentence-transformers~\cite{sbert} (specifically \texttt{all-MiniLM-L6-v2}) computes 384-dimensional embeddings for every transcript segment and every slide. The result is a dictionary held in memory only; embeddings are never serialised because regeneration is fast ($<5$ seconds for a typical 60-minute lecture) and they bloat the session JSON.
+
+\subsection{Stage 4 --- Annotation Generation}
+
+For each transcript segment that exceeds a configurable salience threshold, the annotation engine constructs a Gemini~\cite{gemini} prompt asking for a JSON list of concept names with one-sentence explanations and an importance label (\texttt{low | medium | high}). The LLM service enforces strict JSON via \texttt{response\_mime\_type='application/json'} and validates the response against a Pydantic schema before storing.
+
+\subsection{Stage 5 --- Hybrid Alignment}
+
+The alignment stage links each transcript segment to the slide most likely on screen at that timestamp. A first pass computes the embedding-cosine similarity matrix between segments and slides; the argmax per segment yields a baseline mapping with a confidence score. A second optional pass invokes Gemini with the candidate alignment and asks it to confirm, revise, or reject; this LLM-refined alignment is materially more robust on slides with sparse text or when the instructor digresses.
+
+\subsection{Stage 6 --- Analytics Generation}
+
+The analytics engine summarises the alignment and the (initially empty) behaviour log into per-segment difficulty scores. Live behaviour is captured client-side and transmitted to the backend in batches of analytics events.
+
+\subsection{LLM Service with Circuit Breaker}
+
+\texttt{services/llm.py} wraps the Google \texttt{google-generativeai} client with four behaviours:
+
+\begin{enumerate}
+    \item \textbf{Lazy configuration} --- the API key is read once on first use, keeping start-up paths free of network dependencies.
+    \item \textbf{Structured-output prompting} --- every call sets \texttt{response\_mime\_type='application/json'} and validates the parsed payload against a Pydantic schema when one is provided.
+    \item \textbf{Per-error retry policy} --- transient 5xx and per-minute 429s are retried with exponential backoff plus jitter. Daily-quota 429s (those whose error message references \texttt{GenerateRequestsPerDay}, \texttt{PerDayPerProject}, or \texttt{free\_tier\_requests}) bypass retry because they will not recover within the request lifetime.
+    \item \textbf{Circuit breaker} --- after three consecutive quota errors the breaker opens and the LLM service short-circuits all subsequent calls for ten minutes (configurable). Half-open probing then permits a single trial call; on success the breaker closes, on failure it reopens.
+\end{enumerate}
+
+When the breaker is open or the LLM is otherwise unavailable, every consumer of the service falls back to a deterministic non-LLM path: keyword-based annotations, embedding-only alignment, and mock recommendations. This degraded-mode behaviour is essential for a free-tier deployment, where the daily quota of 20 \texttt{gemini-2.5-flash} requests is easily exceeded by a single processing run.
+
+\subsection{Authentication}
+
+Registration and login are handled by \texttt{auth/routes.py}. Passwords are hashed with bcrypt; tokens are HS256 JWTs~\cite{jwt} whose claims include the user ID (\texttt{sub}) and email, with a configurable TTL (default seven days). The Axios client on the frontend sets the \texttt{Authorization: Bearer ...} header from a token held in \texttt{localStorage} under the key \texttt{insighted.token}. A response interceptor catches \texttt{401} and triggers an \texttt{onUnauthorized} callback installed by the auth provider, which clears the token, the user state, and the persisted Zustand stores.
+
+\subsection{Per-User Session Model}
+
+The naive design---a single global session dictionary shared by the entire FastAPI process---was the original implementation and the source of the most severe bug encountered during development: any user who uploaded a video became visible to every other user on the same backend, because all read endpoints accessed the same global mutable dictionary.
+
+The refactor replaces the global with \texttt{\_user\_sessions: Dict[str, Dict[str, Any]]} keyed by the authenticated user's ObjectId. A helper \texttt{get\_user\_session(user\_id)} lazily creates a fresh session on first access. Every pipeline route now requires \texttt{Depends(get\_current\_user)} and reads only its caller's session. Uploaded files are stored under \texttt{uploads/<user\_id>/}, and \texttt{/reset} wipes only the calling user's session and their upload directory.
+
+The \texttt{fingerprint} field deserves special mention. The frontend computes a SHA-256 of (\texttt{filename | size | last\_modified}) for each uploaded file and ships it as a form field on \texttt{/upload-video}. The backend stores it in the session and echoes it back in \texttt{/status}. This serves two purposes: (1) the Continue-Watching feature looks up resume position by fingerprint, so a learner who re-uploads the same file is automatically offered to resume from their last saved position; (2) analytics events are tagged with the fingerprint as their \texttt{video\_id}, so engagement aggregates remain stable across re-processings of the same source. After a logout-then-login cycle, the analytics page reads the fingerprint from \texttt{/status} (rather than recomputing it from a file that is no longer in scope) and rebinds its event polling accordingly.
+
+\subsection{Engagement Event Capture}
+
+The video player component dispatches \texttt{pause} and \texttt{replay} events to a client-side queue whenever the user pauses for more than $\sim$250\,ms or scrubs backwards by more than 0.5\,s. The queue is flushed every four seconds via \texttt{POST /analytics/events} with the \texttt{student\_name}, \texttt{video\_id} (fingerprint), \texttt{video\_ts}, \texttt{event\_type}, and \texttt{wall\_ts}. Events are scoped to the calling user on both write and read; the \texttt{EventRepo.list\_for\_video} method accepts an optional \texttt{user\_id} filter which the analytics route passes unconditionally.
+
+The analytics page polls \texttt{GET /analytics/events} every four seconds with a \texttt{since\_ms} cursor to fetch only new events. The client buffer deduplicates by (\texttt{student\_name}, \texttt{video\_ts}, \texttt{event\_type}, \texttt{wall\_ts}) and groups events into ten-second buckets for the timeline visualisation.
+
+\subsection{Continue-Watching and Document Export}
+
+\texttt{POST /playback} records (\texttt{user\_id}, \texttt{fingerprint}, \texttt{last\_position\_seconds}, \texttt{duration\_seconds}, \texttt{completed}) every five seconds while the player is running. \texttt{GET /playback/recent} returns the user's most recent unfinished sessions for display on the dashboard. \texttt{POST /documents/generate} materialises an outline (heuristically extracted from the transcript) into a downloadable PDF or PPTX via ReportLab and python-pptx respectively.
+
+\section{Multi-User Session Isolation}\label{sec:isolation}
+
+A central engineering concern of this project was preventing one user's learning session from leaking into another's. The leak surface spans three subsystems:
+
+\begin{enumerate}
+    \item The backend pipeline session --- addressed by the per-user sessions described in Section~\ref{sec:impl}.
+    \item The persisted frontend store --- addressed by binding the Zustand stores to a \texttt{userId} field and verifying on every authentication event that the persisted snapshot belongs to the current user.
+    \item The static \texttt{/uploads} mount --- uploads are namespaced by \texttt{user\_id} in the path, but Starlette's \texttt{StaticFiles} does not gate on auth; this is a known limitation discussed in Section~\ref{sec:discussion}.
+\end{enumerate}
+
+\subsection{Frontend Store Binding}
+
+Both \texttt{useSessionStore} and \texttt{useAnalyticsStore} carry a \texttt{userId} field in their persisted partition. A \texttt{bindStoresToUser(user)} helper is called from three points in the auth lifecycle. If the persisted store's \texttt{userId} differs from the new user, \texttt{resetAllUserState()} is invoked, which performs three things in order: it calls \texttt{clearSession()} and \texttt{clear()} on both stores (which sets the in-memory state back to the initial values), then it removes the two \texttt{localStorage} keys outright. The double-step is deliberate: the persist middleware writes synchronously on every \texttt{set()} call, so clearing the in-memory state without subsequently removing the storage key would leave a freshly-written empty blob behind. Removing the key after clearing makes the cleanup atomic from the next page load's perspective.
+
+\subsection{Authentication-Driven Cleanup}
+
+The \texttt{AuthProvider}'s bootstrap effect runs once per page load. If no JWT is in \texttt{localStorage}, \texttt{resetAllUserState()} is invoked unconditionally to evict any snapshot left behind by a previous user who never explicitly logged out. If a JWT \textit{is} present, the provider calls \texttt{/auth/me}, then on success calls \texttt{bindStoresToUser(me)} \textit{before} setting the user in React state, then triggers \texttt{hydrateFromBackend()}. This sequence guarantees that no React tree ever sees a state where the authenticated \texttt{user} does not match the \texttt{userId} of the persisted store.
+
+\subsection{Backend Defence in Depth}
+
+Even if the frontend cleanup were to fail, the backend would still refuse the request. Every pipeline endpoint requires \texttt{Depends(get\_current\_user)}; the user's session is keyed by their ObjectId; the analytics events query filters by \texttt{user\_id}. A user crafting a request with someone else's fingerprint as \texttt{video\_id} receives an empty result because the document filter additionally matches \texttt{user\_id}.
+
+\section{Results and Evaluation}\label{sec:eval}
+
+The evaluation is qualitative and operational rather than empirical: the project's contribution is system-level, not algorithmic, so the relevant measures are end-to-end correctness, isolation, and graceful degradation under failure.
+
+\subsection{Multi-User Isolation Smoke Test}
+
+We constructed a shell script that exercises nine scenarios across two freshly registered users (Alice and Bob) on a single backend instance. The script: (1)~verifies both users return \texttt{idle} on \texttt{/status}; (2)~has Alice upload with \texttt{fingerprint=ALICE\_FP\_X} and confirms the echo on \texttt{/status} for Alice but not Bob; (3)~posts two events tagged with \texttt{ALICE\_FP\_X} from Alice and confirms only Alice can read them; (4)~simulates a re-login by Alice and confirms her fingerprint and event history are still accessible; (5)~has Bob upload an entirely different video with \texttt{fingerprint=BOB\_FP\_Y} and confirms each user sees only their own metadata; (6)~posts a Bob event and confirms Alice cannot read it; (7)~has Alice call \texttt{/reset} and confirms only her session is wiped; (8)~confirms unauthenticated \texttt{/status} and \texttt{/analytics/events} calls return HTTP~401.
+
+All nine scenarios pass on the running deployment.
+
+\subsection{End-to-End Pipeline Run}
+
+On a 2026 MacBook with an M-series CPU, processing a 35-minute compiler-design lecture takes approximately four minutes wall-clock, dominated by Whisper transcription ($\approx$3 minutes) and Gemini annotation generation ($\approx$45 seconds). The resulting workspace contains 142 transcript segments, 26 slide alignments, and 38 generated annotations.
+
+\subsection{Graceful Degradation Under Quota Exhaustion}
+
+During development we deliberately exhausted the daily Gemini free tier (20 requests for \texttt{gemini-2.5-flash}) to verify the circuit breaker. The first three quota errors from Google were classified as daily rather than per-minute, marked the breaker for opening on the third consecutive failure, and printed a circuit-open log line. Subsequent annotation calls returned immediately without contacting Google, and the annotation engine fell back to keyword-based heuristics. The pipeline completed normally, just with sparser annotation content. \texttt{GET /llm/status} exposed the breaker state to the frontend, which showed an ``AI quota reached --- using fallback responses'' toast (rate-limited to one toast every eight seconds).
+
+\subsection{Cross-Route Session Persistence}
+
+Manual testing in a single browser window confirmed that uploading a video on the workspace, then navigating to Dashboard $\to$ Analytics $\to$ Settings $\to$ Workspace preserves the player position, the annotations panel, the slide alignment, and the active panel selection. The underlying mechanism is described in Section~\ref{sec:impl} and Section~\ref{sec:isolation}: state lives in Zustand outside the React tree, so route unmounts do not destroy it, and the video element remounts to a stable backend URL (\texttt{/uploads/<user\_id>/<filename>}) rather than a component-scoped \texttt{URL.createObjectURL} blob.
+
+\subsection{Build and Runtime Checks}
+
+\begin{itemize}
+    \item \texttt{npm run build} completes in approximately three seconds and produces an 800\,kB JavaScript bundle (240\,kB gzipped).
+    \item \texttt{uvicorn main:app --reload} starts the backend in approximately two seconds; lazy module loaders defer the multi-second cost of importing Whisper and sentence-transformers until the first pipeline run.
+    \item \texttt{GET /health} returns mongo and gemini status as a top-level liveness probe.
+\end{itemize}
+
+\section{Discussion and Limitations}\label{sec:discussion}
+
+\subsection{Single-Process, In-Memory Pipeline State}
+
+Pipeline session state lives in the FastAPI process's memory. A process restart loses every in-flight session, and horizontal scaling is impossible without externalising state (e.g., to Redis). For the intended scope---a single-instance deployment serving a handful of concurrent students---this is acceptable, but a production roll-out would need to migrate the session model to a distributed store.
+
+\subsection{Public Uploads Mount}
+
+Uploaded videos are served by Starlette's \texttt{StaticFiles} mount, which does not gate on authentication. The path \texttt{/uploads/<user\_id>/...} includes the user's MongoDB ObjectId, which is hard to guess but is not a security boundary---any user who learns another user's ID and filename can stream their video. A future revision should replace \texttt{StaticFiles} with a custom endpoint that verifies the JWT before streaming.
+
+\subsection{LLM Quota Dependence}
+
+The free tier of Google Gemini permits twenty requests per day per model. A single annotation pass on a long lecture exhausts this budget. The circuit breaker keeps the application responsive, but the experience degrades visibly. The simplest mitigation is to upgrade the API key to a paid plan; alternatives include batching several segments into a single prompt, caching prompts via the existing \texttt{services/llm\_cache.py}, or substituting a self-hosted open-weight model for the annotation stage.
+
+\subsection{Cross-Tab Same-Browser Auth}
+
+Because the JWT and the persisted Zustand stores both live in \texttt{localStorage}, two tabs in the same browser profile share the same identity. Logging in as user B in tab two overwrites tab one's token. A single-tab restriction is acceptable for the prototype; true cross-tab isolation would require migrating the token to \texttt{sessionStorage} and accepting the trade-off that a hard refresh in one tab logs that tab out.
+
+\subsection{Whisper Accuracy on Technical Content}
+
+Whisper occasionally mis-transcribes domain-specific vocabulary (e.g., ``lex'' rendered as ``Lecks,'' ``LR(1)'' rendered as ``L R one''). A domain-tuned fine-tune of Whisper or a post-processing dictionary substitution pass would improve readability of the transcript and, downstream, the precision of the annotation generation.
+
+\subsection{No Empirical User Study}
+
+The project's evaluation is operational, not experimental. We have not measured comprehension gains, time-on-task, or learner satisfaction. A controlled study comparing learners using InsightEd to learners using a baseline video player on the same lectures would be the natural next step.
+
+\section{Future Work}\label{sec:future}
+
+Beyond the limitations enumerated above, the natural extensions are:
+
+\begin{itemize}
+    \item \textbf{Authenticated media streaming.} Replace \texttt{StaticFiles} with an endpoint that validates the JWT and verifies that the requested path lies under \texttt{uploads/<requesting\_user\_id>/}.
+    \item \textbf{Cross-device session sync.} Externalise the per-user pipeline session to Redis or the existing MongoDB so that a learner who uploads from a laptop and resumes on a tablet sees the same workspace.
+    \item \textbf{Collaborative annotations.} The annotations collection is already user-scoped, but a small extension (a \texttt{shared\_with} field, a friend graph) would enable study groups to share annotation overlays on a common lecture.
+    \item \textbf{Self-hosted LLM fallback.} Slot in \texttt{llama-cpp-python} or \texttt{ollama} as the default annotation backend so a deployment with no Gemini key still produces full annotations.
+    \item \textbf{Search across all of a user's lectures.} Storing per-segment embeddings in a vector index (e.g., MongoDB Atlas Vector Search) would enable semantic search across an entire library.
+    \item \textbf{Quizzing and retrieval practice.} Use the LLM to generate review questions for each annotation and surface them at spaced intervals on the dashboard.
+\end{itemize}
+
+\section{Conclusion}\label{sec:conclusion}
+
+InsightEd demonstrates that a useful, end-to-end AI-powered learning workspace can be assembled from open and freely available components (Whisper, sentence-transformers, YAKE, MongoDB, FastAPI, React, Zustand) with an LLM (Gemini) supplying the parts that resist purely algorithmic solutions. The principal engineering contribution is the careful management of multi-user state across both backend and frontend: per-user pipeline sessions on the server, user-id-bound persisted stores on the client, and an authentication lifecycle that keeps the two synchronised through every transition. The system remains usable when the LLM is unavailable thanks to a circuit breaker and a comprehensive set of non-LLM fallbacks, and preserves the learner's active session across navigation through Zustand's \texttt{persist} middleware bound to a backend-served stable video URL. The project is open-sourced and runs on commodity hardware, positioning it as a foundation for further research in adaptive learning, lecture-video understanding, and learner-engagement analytics.
+
+\begin{thebibliography}{99}
+
+\bibitem{whisper}
+A. Radford, J. W. Kim, T. Xu, G. Brockman, C. McLeavey, and I. Sutskever, ``Robust Speech Recognition via Large-Scale Weak Supervision,'' \textit{arXiv preprint arXiv:2212.04356}, 2022.
+
+\bibitem{slidealign1}
+H. J. Jeong, T. Kim, and Y. C. Choi, ``Automatic Slide-to-Lecture Alignment Using Audio Features and Visual Cues,'' in \textit{Proc. ACM Multimedia}, 2018, pp. 1234--1242.
+
+\bibitem{slidealign2}
+X. Bouthillier, K. Chen, and S. Reddy, ``Aligning Slides to Transcripts: A Sentence-Embedding Approach,'' in \textit{Proc. EMNLP Workshop on NLP for Education}, 2021.
+
+\bibitem{sbert}
+N. Reimers and I. Gurevych, ``Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks,'' in \textit{Proc. EMNLP-IJCNLP}, 2019, pp. 3982--3992.
+
+\bibitem{yake}
+R. Campos, V. Mangaravite, A. Pasquali, A. Jorge, C. Nunes, and A. Jatowt, ``YAKE! Keyword Extraction from Single Documents using Multiple Local Features,'' \textit{Information Sciences}, vol. 509, pp. 257--289, 2020.
+
+\bibitem{kim2014}
+J. Kim, P. J. Guo, D. T. Seaton, P. Mitros, K. Z. Gajos, and R. C. Miller, ``Understanding In-Video Dropouts and Interaction Peaks in Online Lecture Videos,'' in \textit{Proc. ACM Conf. on Learning at Scale (L@S)}, 2014, pp. 31--40.
+
+\bibitem{react}
+Meta Open Source, ``React: A JavaScript library for building user interfaces,'' 2024. [Online]. Available: \url{https://react.dev}
+
+\bibitem{zustand}
+D. Sumi and contributors, ``Zustand: Bear necessities for state management in React,'' 2024. [Online]. Available: \url{https://github.com/pmndrs/zustand}
+
+\bibitem{fastapi}
+S. Ram\'{i}rez and contributors, ``FastAPI: Modern, fast (high-performance), web framework for building APIs with Python,'' 2024. [Online]. Available: \url{https://fastapi.tiangolo.com}
+
+\bibitem{motor}
+MongoDB, Inc., ``Motor: Asynchronous Python driver for MongoDB,'' 2024. [Online]. Available: \url{https://motor.readthedocs.io}
+
+\bibitem{keybert}
+M. Grootendorst, ``KeyBERT: Minimal keyword extraction with BERT,'' 2020. [Online]. Available: \url{https://github.com/MaartenGr/KeyBERT}
+
+\bibitem{gemini}
+Google, ``Gemini API documentation,'' 2024. [Online]. Available: \url{https://ai.google.dev/gemini-api/docs}
+
+\bibitem{jwt}
+M. Jones, J. Bradley, and N. Sakimura, ``JSON Web Token (JWT),'' RFC 7519, 2015. [Online]. Available: \url{https://datatracker.ietf.org/doc/html/rfc7519}
+
+\end{thebibliography}
+
+\end{document}

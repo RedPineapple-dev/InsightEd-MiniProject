@@ -1,271 +1,272 @@
 """
-LLM Engine Module
-Handles Gemini API integration with strict prompt design and JSON validation.
+LLM Engine — public-facing API used by alignment_engine and annotation_engine.
+
+Thin facade over `services.llm`. Adds:
+  - retry with exponential backoff on transient errors
+  - structured-output validation via Pydantic
+  - JSON-only output via `response_mime_type='application/json'`
+  - graceful fallbacks — callers always get *something*
+  - **batched** annotation generation for ~6× fewer API calls
+  - **slimmed** prompts to reduce token usage
+
+Public API:
+  - match_segment_to_document(segment_text, candidates)
+  - generate_annotations(segment_text)
+  - generate_annotations_batch(units)        # NEW
 """
 
-import json
+from __future__ import annotations
+
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-# Load environment variables
+from services.llm import LLMError, get_llm
+
 load_dotenv(override=True)
 
-# Gemini SDK
-try:
-    import google.generativeai as genai
-except ImportError:
-    raise ImportError(
-        "google-generativeai package is not installed. Please install it."
-    )
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
-# Load API key
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not GEMINI_API_KEY:
-    print("Warning: GEMINI_API_KEY not found in environment.")
-
-# Configure Gemini
-genai.configure(api_key=GEMINI_API_KEY)
-
-# =========================
-# MODEL CONFIG
-# =========================
-
-# WORKING MODEL
-DEFAULT_MODEL = "gemini-1.5-flash"
-
-# Initialize model
-model = genai.GenerativeModel(DEFAULT_MODEL)
-
-# =========================
-# Pydantic Models
-# =========================
+# ── Schemas ───────────────────────────────────────────────────────────────
 
 class MatchResult(BaseModel):
-    type: str = Field(description="Must be 'slide' or 'pdf'")
-    id: int = Field(description="The ID of the matched document/slide")
-    reason: str = Field(
-        description="Short explanation of why this is the best match"
-    )
-    confidence: float = Field(
-        description="Confidence score between 0.0 and 1.0"
-    )
+    type: str = Field(description="'slide' or 'pdf'")
+    id: int
+    reason: str = ""
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    @field_validator("type")
+    @classmethod
+    def _valid_type(cls, v: str) -> str:
+        v = (v or "").lower().strip()
+        if v not in {"slide", "pdf"}:
+            raise ValueError("type must be 'slide' or 'pdf'")
+        return v
 
 
 class ConceptAnnotation(BaseModel):
-    concept: str = Field(description="The name of the concept extracted")
-    explanation: str = Field(
-        description="Clear and concise explanation of the concept"
-    )
-    importance: str = Field(
-        description="Importance level: high, medium, or low"
-    )
+    concept: str
+    explanation: str
+    importance: str = "medium"
+
+    @field_validator("importance")
+    @classmethod
+    def _normalize_importance(cls, v: str) -> str:
+        v = (v or "medium").lower().strip()
+        return v if v in {"high", "medium", "low"} else "medium"
 
 
 class AnnotationResult(BaseModel):
-    concepts: List[ConceptAnnotation] = Field(
-        description="List of extracted concepts"
-    )
+    concepts: List[ConceptAnnotation] = Field(default_factory=list)
 
 
-# =========================
-# Prompt Builders
-# =========================
+class BatchAnnotationUnit(BaseModel):
+    id: int
+    concepts: List[ConceptAnnotation] = Field(default_factory=list)
 
-def build_matching_prompt(
-    segment_text: str,
-    candidates: List[Dict[str, Any]],
-) -> str:
-    """
-    Build prompt for matching transcript segment to slide/document.
-    """
 
+class BatchAnnotationResult(BaseModel):
+    results: List[BatchAnnotationUnit] = Field(default_factory=list)
+
+
+# ── Prompt builders (slim) ────────────────────────────────────────────────
+
+def build_matching_prompt(segment_text: str, candidates: List[Dict[str, Any]]) -> str:
     lines = [
-        "You are an AI system that links lecture video content to slides or PDF pages.",
+        "Pick the candidate that best matches the transcript segment.",
         "",
-        "Video transcript segment:",
-        segment_text.strip(),
+        f"Segment: {segment_text.strip()[:1400]}",
         "",
         "Candidates:",
     ]
-
-    for idx, candidate in enumerate(candidates, start=1):
-        doc_type = candidate.get("type", "unknown")
-        doc_id = candidate.get("id", "?")
-        doc_text = candidate.get("text", "").strip()
-
-        lines.append(
-            f"{idx}. ({doc_type} {doc_id}): {doc_text[:300]}"
-        )
-
-    lines.extend([
-        "",
-        "Select the BEST matching candidate.",
-        "",
-        "Return ONLY valid JSON in this exact format:",
-        """
-{
-  "type": "slide",
-  "id": 1,
-  "reason": "why this matches",
-  "confidence": 0.95
-}
-"""
-    ])
-
+    for cand in candidates:
+        doc_type = cand.get("type", "?")
+        doc_id = cand.get("id", "?")
+        doc_text = (cand.get("text") or "").strip().replace("\n", " ")[:240]
+        lines.append(f"- {doc_type}#{doc_id}: {doc_text}")
+    lines.append('JSON only: {"type":"slide|pdf","id":<int>,"reason":"<short>","confidence":<0..1>}')
     return "\n".join(lines)
 
 
-# =========================
-# Utilities
-# =========================
+_ANNOTATION_SYSTEM_RULES = (
+    "Extract concepts actually explained in the transcript. "
+    "Use canonical technical forms (LR0, FOLLOW, FIRST, NFA, DFA, CFG, GOTO). "
+    "Max 4 concepts. Skip filler. Don't invent. "
+    "Importance: high|medium|low."
+)
 
-def clean_json_response(text: str) -> Dict[str, Any]:
+
+def build_annotation_prompt(segment_text: str) -> str:
+    return (
+        f"{_ANNOTATION_SYSTEM_RULES}\n\n"
+        f"Transcript: {segment_text.strip()[:1800]}\n\n"
+        'JSON only: {"concepts":[{"concept":"...","explanation":"...","importance":"high|medium|low"}]}'
+    )
+
+
+def build_batch_annotation_prompt(units: List[Dict[str, Any]]) -> str:
+    """Pack N segments into one Gemini call.
+
+    Each unit must have {"id": int, "text": str}. The model returns a JSON
+    array keyed by id so we can de-multiplex on the client.
     """
-    Clean Gemini response and parse JSON safely.
-    """
+    parts = [
+        _ANNOTATION_SYSTEM_RULES,
+        "For EACH segment below return its concepts list (empty if filler).",
+        "",
+    ]
+    for u in units:
+        parts.append(f"#{u['id']}: {(u.get('text') or '').strip()[:1100]}")
+    parts.append(
+        '\nJSON only: {"results":[{"id":<int>,"concepts":'
+        '[{"concept":"...","explanation":"...","importance":"high|medium|low"}]}]}'
+    )
+    return "\n".join(parts)
 
-    text = text.strip()
 
-    # Remove markdown wrappers if present
-    if text.startswith("```json"):
-        text = text.replace("```json", "").replace("```", "").strip()
-
-    elif text.startswith("```"):
-        text = text.replace("```", "").strip()
-
-    return json.loads(text)
-
-
-# =========================
-# Matching Engine
-# =========================
+# ── Public API ────────────────────────────────────────────────────────────
 
 def match_segment_to_document(
     segment_text: str,
     candidates: List[Dict[str, Any]],
-    model_name: str = DEFAULT_MODEL,
+    model_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Match transcript segment to best slide/document.
-    """
-
+    """Match a transcript segment to its best candidate slide/page."""
     if not candidates:
         raise ValueError("No candidates provided")
+
+    fallback = {
+        "type": candidates[0].get("type", "unknown"),
+        "id": candidates[0].get("id", 0),
+        "reason": "Fallback to top embedding candidate.",
+        "confidence": 0.5,
+    }
+
+    llm = get_llm()
+    if not llm.is_available():
+        return {**fallback, "reason": "LLM unavailable — using top embedding candidate."}
 
     prompt = build_matching_prompt(segment_text, candidates)
 
     try:
-        local_model = genai.GenerativeModel(model_name)
-
-        response = local_model.generate_content(
+        result = llm.generate_json(
             prompt,
-            generation_config={
-                "temperature": 0.1,
-            }
+            MatchResult,
+            model=model_name or DEFAULT_MODEL,
+            cache_namespace="alignment",
         )
+    except LLMError as exc:
+        print(f"[llm_engine] match failed: {exc}")
+        return {**fallback, "reason": f"LLM error: {exc}", "confidence": 0.0}
 
-        result = clean_json_response(response.text)
+    if not result:
+        return fallback
 
-        # Validate result belongs to candidate list
-        valid_match = False
+    valid = any(
+        c.get("type") == result.type and c.get("id") == result.id for c in candidates
+    )
+    if not valid:
+        print(
+            f"[llm_engine] LLM returned non-candidate match "
+            f"{result.type}#{result.id}, falling back"
+        )
+        return fallback
 
-        for candidate in candidates:
-            if (
-                candidate.get("type") == result.get("type")
-                and candidate.get("id") == result.get("id")
-            ):
-                valid_match = True
-                break
+    return result.model_dump()
 
-        # Fallback if invalid match
-        if not valid_match:
-            print(
-                f"Warning: Invalid Gemini match "
-                f"{result.get('type')} {result.get('id')}"
-            )
-
-            best = candidates[0]
-
-            result = {
-                "type": best.get("type", "unknown"),
-                "id": best.get("id", 0),
-                "reason": "Fallback to best semantic candidate.",
-                "confidence": 0.5,
-            }
-
-        return result
-
-    except Exception as e:
-        print(f"Gemini matching failed: {e}")
-
-        # Safe fallback
-        best = candidates[0]
-
-        return {
-            "type": best.get("type", "unknown"),
-            "id": best.get("id", 0),
-            "reason": f"Fallback due to Gemini error: {str(e)}",
-            "confidence": 0.0,
-        }
-
-
-# =========================
-# Annotation Engine
-# =========================
 
 def generate_annotations(
     segment_text: str,
-    model_name: str = DEFAULT_MODEL,
+    model_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Generate concept annotations from transcript segment.
-    """
+    """Extract concept annotations from a transcript segment (single call).
 
-    if not segment_text.strip():
+    Prefer ``generate_annotations_batch`` when annotating multiple units;
+    this single-call version is kept for backward compatibility.
+    """
+    text = (segment_text or "").strip()
+    if not text:
         return []
 
-    prompt = f"""
-Analyze the following lecture transcript segment and extract important concepts.
+    llm = get_llm()
+    if not llm.is_available():
+        return []
 
-For each concept provide:
-- concept
-- explanation
-- importance (high, medium, low)
-
-Transcript:
-{segment_text}
-
-Return ONLY valid JSON in this format:
-
-{{
-  "concepts": [
-    {{
-      "concept": "Example Concept",
-      "explanation": "Explanation here",
-      "importance": "high"
-    }}
-  ]
-}}
-"""
-
+    prompt = build_annotation_prompt(text)
     try:
-        local_model = genai.GenerativeModel(model_name)
-
-        response = local_model.generate_content(
+        result = llm.generate_json(
             prompt,
-            generation_config={
-                "temperature": 0.2,
-            }
+            AnnotationResult,
+            model=model_name or DEFAULT_MODEL,
+            temperature=0.2,
+            cache_namespace="annotation",
         )
-
-        result = clean_json_response(response.text)
-
-        return result.get("concepts", [])
-
-    except Exception as e:
-        print(f"Gemini annotation failed: {e}")
+    except LLMError as exc:
+        print(f"[llm_engine] annotation failed: {exc}")
         return []
+
+    if not result:
+        return []
+    return [c.model_dump() for c in result.concepts]
+
+
+def generate_annotations_batch(
+    units: List[Dict[str, Any]],
+    model_name: Optional[str] = None,
+) -> Dict[int, List[Dict[str, Any]]]:
+    """Batched annotation generation.
+
+    Args:
+        units: list of {"id": int, "text": str}. Group of 5–8 is ideal.
+
+    Returns:
+        dict mapping id -> list of concept dicts. Missing/failed ids map to [].
+    """
+    if not units:
+        return {}
+
+    ids = [int(u["id"]) for u in units]
+    empty = {i: [] for i in ids}
+
+    llm = get_llm()
+    if not llm.is_available():
+        return empty
+
+    prompt = build_batch_annotation_prompt(units)
+    try:
+        result = llm.generate_json(
+            prompt,
+            BatchAnnotationResult,
+            model=model_name or DEFAULT_MODEL,
+            temperature=0.2,
+            cache_namespace="annotation_batch",
+        )
+    except LLMError as exc:
+        print(f"[llm_engine] batch annotation failed ({len(units)} units): {exc}")
+        return empty
+
+    if not result:
+        return empty
+
+    out: Dict[int, List[Dict[str, Any]]] = {i: [] for i in ids}
+    for r in result.results:
+        if r.id in out:
+            out[r.id] = [c.model_dump() for c in r.concepts]
+    return out
+
+
+# Backwards-compat: some legacy callers may import these directly.
+def clean_json_response(text: str) -> Dict[str, Any]:
+    """Kept for backward compatibility — used by older code paths."""
+    import json
+    s = (text or "").strip()
+    if s.startswith("```json"):
+        s = s[len("```json"):].strip()
+    elif s.startswith("```"):
+        s = s[len("```"):].strip()
+    if s.endswith("```"):
+        s = s[:-3].strip()
+    return json.loads(s)

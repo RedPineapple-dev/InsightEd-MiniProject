@@ -1,20 +1,54 @@
-import { Routes, Route } from 'react-router-dom'
-import Navbar from './components/Navbar'
-import UploadPage from './pages/UploadPage'
-import LearningPage from './pages/LearningPage'
+import { Navigate, Route, Routes } from 'react-router-dom'
+
+import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
+import WorkspacePage from './pages/WorkspacePage'
+import AnalyticsPage from './pages/AnalyticsPage'
+import SettingsPage from './pages/SettingsPage'
+import { ProtectedRoute } from './routes/ProtectedRoute'
 
 export default function App() {
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--ink-900)' }}>
-      <Navbar />
-      <main className="flex-1">
-        <Routes>
-          <Route path="/" element={<UploadPage />} />
-          <Route path="/learn" element={<LearningPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-        </Routes>
-      </main>
-    </div>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/workspace"
+        element={
+          <ProtectedRoute>
+            <WorkspacePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <AnalyticsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   )
 }
