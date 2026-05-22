@@ -129,63 +129,22 @@ class DocumentProcessor:
         return [p.strip() for p in paras if p.strip() and len(p.strip()) > 20]
 
     def _mock_slides(self) -> List[Dict[str, Any]]:
-        """Fallback mock slides."""
-        data = [
-            ("Introduction to Machine Learning", [
-                "Definition: ML is a subset of AI",
-                "Types: Supervised, Unsupervised, Reinforcement",
-                "Applications: image recognition, NLP, robotics",
-            ]),
-            ("Supervised Learning", [
-                "Training on labeled data",
-                "Classification and Regression tasks",
-                "Examples: Decision Trees, SVM, Neural Networks",
-            ]),
-            ("Decision Trees", [
-                "Tree-like model of decisions",
-                "Splits data on feature values",
-                "Handles both categorical and numerical data",
-            ]),
-            ("Neural Networks", [
-                "Inspired by the human brain",
-                "Layers: Input, Hidden, Output",
-                "Activation functions: ReLU, Sigmoid, Softmax",
-            ]),
-            ("Gradient Descent", [
-                "Optimization algorithm",
-                "Minimizes loss function",
-                "Learning rate controls step size",
-            ]),
-            ("Overfitting & Regularization", [
-                "Overfitting: model memorizes training data",
-                "Regularization: L1, L2 penalties",
-                "Dropout technique in neural networks",
-            ]),
-            ("Cross-Validation", [
-                "K-fold cross-validation",
-                "Train/validation/test splits",
-                "Evaluating generalization performance",
-            ]),
-            ("Convolutional Neural Networks", [
-                "Specialized for image data",
-                "Convolution, pooling, fully-connected layers",
-                "Applications: object detection, classification",
-            ]),
-            ("Transfer Learning", [
-                "Reuse pre-trained models",
-                "Fine-tuning for specific tasks",
-                "Reduces data and compute requirements",
-            ]),
+        """Neutral placeholder when slide parsing is unavailable.
+
+        Returns one obvious-failure slide instead of a believable-but-wrong
+        deck, so the user can tell parsing failed.
+        """
+        title = "Slides unavailable"
+        bullets = [
+            "Document parsing failed for the uploaded file.",
+            "Please re-upload the slide deck, or rely on auto-derived slides from the transcript.",
         ]
-        slides = []
-        for idx, (title, bullets) in enumerate(data):
-            text = title + ". " + ". ".join(bullets)
-            slides.append({
-                "id": idx,
-                "slide_number": idx + 1,
-                "title": title,
-                "bullets": bullets,
-                "text": text,
-                "sections": [text],
-            })
-        return slides
+        text = title + ". " + ". ".join(bullets)
+        return [{
+            "id": 0,
+            "slide_number": 1,
+            "title": title,
+            "bullets": bullets,
+            "text": text,
+            "sections": [text],
+        }]

@@ -68,21 +68,32 @@ class VideoProcessor:
     def transcribe(self, audio_path: str) -> List[Dict[str, Any]]:
         if self.whisper_model is None or audio_path is None:
             return None
-        try:
-            result = self.whisper_model.transcribe(audio_path, word_timestamps=False)
-            segments = []
-            for seg in result.get("segments", []):
-                segments.append({
-                    "timestamp": self._format_ts(seg["start"]),
-                    "start": round(seg["start"], 2),
-                    "end": round(seg["end"], 2),
-                    "text": seg["text"].strip(),
-                    "id": seg["id"],
-                })
-            return segments
-        except Exception as e:
-            print(f"[VideoProcessor] Transcription error: {e}")
-            return None
+        # Pinned `openai-whisper==20231117` is known to hit
+        # "size of tensor a (N) must match tensor b (3)" on newer torch builds
+        # for certain audio shapes. The retry below uses safer decoding flags
+        # (no fp16, single temperature, no previous-text conditioning) which
+        # avoid the failing code path for most clips.
+        for attempt, kwargs in enumerate((
+            {"word_timestamps": False, "fp16": False, "language": "en"},
+            {"word_timestamps": False, "fp16": False, "language": "en",
+             "temperature": 0.0, "condition_on_previous_text": False},
+        )):
+            try:
+                result = self.whisper_model.transcribe(audio_path, **kwargs)
+                segments = []
+                for seg in result.get("segments", []):
+                    segments.append({
+                        "timestamp": self._format_ts(seg["start"]),
+                        "start": round(seg["start"], 2),
+                        "end": round(seg["end"], 2),
+                        "text": seg["text"].strip(),
+                        "id": seg["id"],
+                    })
+                if segments:
+                    return segments
+            except Exception as e:
+                print(f"[VideoProcessor] Transcription attempt {attempt + 1} failed: {e}")
+        return None
 
     def process(self, video_path: str) -> List[Dict[str, Any]]:
         print(f"[VideoProcessor] Processing: {video_path}")
@@ -114,34 +125,23 @@ class VideoProcessor:
         return f"{mins:02d}:{secs:02d}"
 
     def _mock_transcript(self, video_path: str) -> List[Dict[str, Any]]:
-        """Generate mock transcript. Tries to get real video duration first."""
-        duration = self._get_duration(video_path)
+        """Neutral placeholder for when transcription is unavailable.
 
-        base = [
-            "Welcome to this lecture on machine learning fundamentals. Today we cover supervised learning.",
-            "Supervised learning involves training a model on labeled data to map inputs to outputs.",
-            "Decision trees are a popular supervised learning method that splits data on feature values.",
-            "Neural networks are inspired by the human brain with layers of interconnected neurons.",
-            "Gradient descent is the optimization algorithm used to minimize the loss function during training.",
-            "Overfitting occurs when a model learns training data too well and fails to generalize.",
-            "Cross-validation helps evaluate model performance by testing on held-out data splits.",
-            "Convolutional neural networks are specialized for image processing and computer vision tasks.",
-            "Transfer learning allows reusing pre-trained models and fine-tuning them for new tasks.",
-        ]
-
-        segments = []
-        seg_duration = duration / len(base) if duration else 22.0
-        for i, text in enumerate(base):
-            start = i * seg_duration
-            end = (i + 1) * seg_duration
-            segments.append({
-                "id": i,
-                "timestamp": self._format_ts(start),
-                "start": round(start, 2),
-                "end": round(end, 2),
-                "text": text,
-            })
-        return segments
+        Returns one obvious-failure segment so downstream stages can run
+        without crashing, but the user sees clearly that transcription
+        failed instead of being shown plausible-looking but unrelated text.
+        """
+        duration = self._get_duration(video_path) or 60.0
+        return [{
+            "id": 0,
+            "timestamp": "00:00",
+            "start": 0.0,
+            "end": round(duration, 2),
+            "text": (
+                "Transcription unavailable — Whisper could not process the audio "
+                "for this video. Please retry the upload."
+            ),
+        }]
 
     def _get_duration(self, video_path: str) -> float:
         """Try to get video duration in seconds."""

@@ -550,7 +550,7 @@ def health():
     return {
         "status": "ok",
         "mongo": "connected" if is_connected() else "disabled",
-        "gemini": "configured" if settings.gemini_api_key else "missing",
+        "gemini": "configured" if settings.gemini_keys else "missing",
     }
 
 @app.get("/status")
