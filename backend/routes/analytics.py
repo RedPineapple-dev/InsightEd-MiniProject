@@ -119,7 +119,15 @@ async def summary(
         )
 
     top_replayed = sorted(bucket_list, key=lambda x: (x["replay"], x["total"]), reverse=True)[:5]
-    difficult = [b for b in bucket_list if b["unique_students"] >= 2]
+    # Auto-detect difficult buckets from the active user's own interactions:
+    # replays are the strongest confusion signal, pauses weaker.
+    for b in bucket_list:
+        b["difficulty"] = b["replay"] * 2 + b["pause"]
+    difficult = sorted(
+        (b for b in bucket_list if b["difficulty"] >= 2),
+        key=lambda x: x["difficulty"],
+        reverse=True,
+    )
 
     return {
         "video_id": video_id,

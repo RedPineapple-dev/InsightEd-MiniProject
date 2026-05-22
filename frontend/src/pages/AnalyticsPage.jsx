@@ -134,9 +134,13 @@ export default function AnalyticsPage() {
   }, [buckets])
 
   const difficult = useMemo(() => {
+    // Replays signal a learner rewatched a segment — strongest indicator.
+    // Pauses are weaker (people pause for many reasons), so weight them less.
+    const DIFFICULTY_THRESHOLD = 2
     return buckets
-      .filter((b) => b.unique_students >= 2)
-      .sort((a, b) => b.total - a.total)
+      .map((b) => ({ ...b, difficulty: b.replay * 2 + b.pause }))
+      .filter((b) => b.difficulty >= DIFFICULTY_THRESHOLD)
+      .sort((a, b) => b.difficulty - a.difficulty)
   }, [buckets])
 
   const maxTotal = Math.max(1, ...buckets.map((b) => b.total))
@@ -298,13 +302,13 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Difficult segments</CardTitle>
             <CardDescription>
-              Buckets where 2+ unique learners interacted — likely confusion points.
+              Segments you replayed or paused on — auto-detected likely confusion points.
             </CardDescription>
           </CardHeader>
           <CardBody>
             {difficult.length === 0 ? (
               <div className="text-sm text-ink-3 py-8 text-center">
-                Nothing flagged yet. Difficult segments need at least 2 distinct learners.
+                Nothing flagged yet. Replay or pause on a segment a few times and it will show up here.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -320,7 +324,7 @@ export default function AnalyticsPage() {
                   </thead>
                   <tbody>
                     {difficult.map((b) => {
-                      const severe = b.total >= 6
+                      const severe = b.difficulty >= 5
                       return (
                         <motion.tr
                           key={b.bucket}
