@@ -82,7 +82,7 @@ async def list_annotations(
     }
 
 
-@router.post("/list", status_code=201)
+@router.post("", status_code=201)
 async def create_annotation(
     payload: AnnotationCreate,
     user: UserPublic = Depends(get_current_user),
@@ -102,7 +102,7 @@ async def create_annotation(
     return _serialise(doc)
 
 
-@router.patch("/list/{annotation_id}")
+@router.patch("/{annotation_id}")
 async def update_annotation(
     annotation_id: str,
     payload: AnnotationUpdate,
@@ -122,7 +122,7 @@ async def update_annotation(
     return _serialise(doc)
 
 
-@router.delete("/list/{annotation_id}")
+@router.delete("/{annotation_id}")
 async def delete_annotation(
     annotation_id: str,
     user: UserPublic = Depends(get_current_user),
